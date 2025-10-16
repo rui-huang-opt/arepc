@@ -1,4 +1,0 @@
-topolink@ git+https://github.com/rui-huang-opt/topolink.git@0.1.5
-
-[vsc]
-ipykernel>=6.29.5
