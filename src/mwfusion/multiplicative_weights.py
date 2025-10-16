@@ -24,14 +24,10 @@ class Registry(Generic[T]):
         return cls(*args, **kwargs)
 
 
-from typing import Callable
-from numpy import float64
-from numpy.typing import NDArray
-
-PenaltyFunc = Callable[[str, dict[str, NDArray[float64]]], float]
-
 from abc import ABCMeta, abstractmethod
 from typing import Type
+from numpy import float64
+from numpy.typing import NDArray
 
 
 class MultiplicativeWeights(metaclass=ABCMeta):
@@ -41,13 +37,10 @@ class MultiplicativeWeights(metaclass=ABCMeta):
         super().__init_subclass__(**kwargs)
         cls._registry.register(cls, key)
 
-    def __init__(
-        self, experts: list[str], penalty_func: PenaltyFunc, eps: float
-    ) -> None:
-        self.experts = experts
-        self.eps = eps
-        self.weights = {j: 1.0 for j in experts}
-        self.penalty_func = penalty_func
+    def __init__(self, experts: list[str], eps: float) -> None:
+        self._experts = experts
+        self._eps = eps
+        self._weights = {j: 1.0 for j in experts}
 
     @classmethod
     def create(cls, key: str, *args, **kwargs) -> "MultiplicativeWeights":
@@ -55,17 +48,17 @@ class MultiplicativeWeights(metaclass=ABCMeta):
 
     @property
     def normalized_weights(self) -> dict[str, float]:
-        total_weight = sum(self.weights.values())
-        return {j: w / total_weight for j, w in self.weights.items()}
+        total_weight = sum(self._weights.values())
+        return {j: w / total_weight for j, w in self._weights.items()}
 
     def update(self, outcomes: dict[str, NDArray[float64]]) -> None:
-        for j in self.experts:
-            penalty = self.penalty_func(j, outcomes)
-            factor = 1 - self.eps * penalty
+        for j in self._experts:
+            penalty = penalty_func(j, outcomes)
+            factor = 1 - self._eps * penalty
             if factor < 0:
-                self.eps = 1 / penalty * 0.99
-                factor = 1 - self.eps * penalty
-            self.weights[j] *= factor
+                self._eps = 1 / penalty * 0.99
+                factor = 1 - self._eps * penalty
+            self._weights[j] *= factor
 
     @abstractmethod
     def make_prediction(
@@ -78,24 +71,24 @@ from numpy.random import choice
 
 
 class ProbabilisticMW(MultiplicativeWeights, key="probabilistic"):
-    def choose_expert(self) -> str:
+    def _choose_expert(self) -> str:
         normalized_weights = self.normalized_weights
-        probs = [normalized_weights[j] for j in self.experts]
-        return choice(self.experts, p=probs)
+        probs = [normalized_weights[j] for j in self._experts]
+        return choice(self._experts, p=probs)
 
     def make_prediction(
         self, outcomes: dict[str, NDArray[float64]]
     ) -> NDArray[float64]:
-        expert_choice = self.choose_expert()
+        expert_choice = self._choose_expert()
         return outcomes[expert_choice]
 
 
 class WeightedAvgMW(MultiplicativeWeights, key="weighted_avg"):
-    def combine_outcomes(
+    def _combine_outcomes(
         self, outcomes: dict[str, NDArray[float64]]
     ) -> NDArray[float64]:
         normalized_weights = self.normalized_weights
-        weighted_avg = sum([normalized_weights[j] * outcomes[j] for j in self.experts])
+        weighted_avg = sum([normalized_weights[j] * outcomes[j] for j in self._experts])
 
         if not isinstance(weighted_avg, ndarray):
             raise ValueError("The combined outcome is not a numpy array.")
@@ -105,4 +98,13 @@ class WeightedAvgMW(MultiplicativeWeights, key="weighted_avg"):
     def make_prediction(
         self, outcomes: dict[str, NDArray[float64]]
     ) -> NDArray[float64]:
-        return self.combine_outcomes(outcomes)
+        return self._combine_outcomes(outcomes)
+
+
+from numpy import mean
+from numpy.linalg import norm
+
+
+def penalty_func(j: str, x_js: dict[str, NDArray[float64]]) -> float:
+    x_j = x_js[j]
+    return mean([norm(x_j - x_js[k]) for k in x_js], dtype=float64)
