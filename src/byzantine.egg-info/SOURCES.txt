@@ -1,0 +1,9 @@
+pyproject.toml
+src/byzantine/__init__.py
+src/byzantine/multiplicative_weights.py
+src/byzantine/reputation_based.py
+src/byzantine.egg-info/PKG-INFO
+src/byzantine.egg-info/SOURCES.txt
+src/byzantine.egg-info/dependency_links.txt
+src/byzantine.egg-info/requires.txt
+src/byzantine.egg-info/top_level.txt

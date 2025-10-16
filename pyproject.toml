@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+requires-python = ">=3.10"
+name = "byzantine"
+version = "0.1.0"
+license = { text = "MIT" }
+description = "A Python package for Byzantine fault-tolerant consensus algorithms."
+authors = [{ name = "Rui Huang", email = "ruihuang0421@gmail.com" }]
+
+dependencies = [
+    "topolink @ git+https://github.com/rui-huang-opt/topolink.git@0.1.5",
+]
+
+[project.optional-dependencies]
+vsc = ["ipykernel>=6.29.5"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
