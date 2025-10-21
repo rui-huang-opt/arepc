@@ -4,10 +4,10 @@ build-backend = "setuptools.build_meta"
 
 [project]
 requires-python = ">=3.10"
-name = "mwfusion"
+name = "mwupdate"
 version = "0.1.0"
 license = { text = "MIT" }
-description = "A Python package for Byzantine fault-tolerant consensus algorithms."
+description = "A Python package for Multiplicative Weights Update Method."
 authors = [{ name = "Rui Huang", email = "ruihuang0421@gmail.com" }]
 
 dependencies = [
