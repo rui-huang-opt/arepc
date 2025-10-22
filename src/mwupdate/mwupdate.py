@@ -4,27 +4,7 @@ from numpy import ones, zeros, exp, sqrt, log, maximum, minimum
 from numpy.linalg import norm
 from numpy.typing import NDArray
 from numpy.random import choice
-
-
-def min_f(probs: NDArray[float64], f: int) -> float | None:
-    """
-    The min-f score is defined as the f-th smallest unique score in the array,
-    but it is not allowed to be the largest score.
-    If there is only one unique score, return None to indicate that all scores are equal.
-    """
-
-    if probs.size == 0:
-        raise ValueError("Probabilities array is empty.")
-
-    deduped_probs = unique(probs)
-
-    if len(deduped_probs) == 1:
-        return None
-
-    if f >= len(deduped_probs):
-        return deduped_probs[-2]
-    else:
-        return deduped_probs[f - 1]
+from .utils import min_f
 
 
 def loss_func(j: str, x_js: dict[str, NDArray[float64]]) -> float:
@@ -75,15 +55,15 @@ class MWUpdate:
 
         outcomes_ = stack([outcomes[j] for j in self._experts], dtype=float64)
 
-        # Probabilistic selection
+        # 1. Probabilistic selection
         # idx = choice(self.n_experts, p=self._probs)
 
         # return outcomes_[idx]
 
-        # Weighted average
+        # 2. Weighted average
         # return average(outcomes_, axis=0, weights=self._probs)
 
-        # Probability-trimmed weighting
+        # 3. Probability-trimmed weighting
         # min_f_prob = min_f(self._probs, f=self._f)
         # if min_f_prob is None:
         #     return average(outcomes_, axis=0)
@@ -95,7 +75,7 @@ class MWUpdate:
 
         # return average(outcomes_, axis=0, weights=weights)
 
-        # Bounded weighted average
+        # 4. Bounded weighted average
         outcomes_ = maximum(outcomes_, self._min_outcome)
         outcomes_ = minimum(outcomes_, self._max_outcome)
 
