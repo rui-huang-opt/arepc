@@ -28,6 +28,9 @@ class LossFunc(metaclass=ABCMeta):
 
 
 class PairwiseDistanceLoss(LossFunc, key="pairwise_distance"):
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__()
+
     def __call__(self, outcomes: NDArray[float64]) -> NDArray[float64]:
         differences = outcomes[:, newaxis, :] - outcomes[newaxis, :, :]
         distances = norm(differences, axis=2)

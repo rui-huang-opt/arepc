@@ -30,11 +30,13 @@ class LearningRule(metaclass=ABCMeta):
         ...
 
 
-from numpy import ones, zeros, exp, sqrt, log
+from numpy import zeros, exp, sqrt, log
 
 
 class Hedge(LearningRule, key="hedge"):
-    def __init__(self, n_experts: int, eta: float | None = None) -> None:
+    def __init__(
+        self, n_experts: int, eta: float | None = None, *args, **kwargs
+    ) -> None:
         super().__init__(n_experts)
 
         self._eta = eta
@@ -60,7 +62,7 @@ from numpy import where
 
 
 class AdaHedge(LearningRule, key="adahedge"):
-    def __init__(self, n_experts: int) -> None:
+    def __init__(self, n_experts: int, *args, **kwargs) -> None:
         super().__init__(n_experts)
 
         self._cumulative_mix_gap = 0.0
@@ -101,4 +103,4 @@ class AdaHedge(LearningRule, key="adahedge"):
         mix_gap = max(0.0, mixed_loss - mix_loss + mix_loss_prev)
         self._cumulative_mix_gap += mix_gap
 
-        return probs
+        return probs_prev

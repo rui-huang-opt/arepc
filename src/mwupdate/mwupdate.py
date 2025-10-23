@@ -18,12 +18,16 @@ class MWUpdate:
         learning_rule: str = "adahedge",
         loss_func: str = "pairwise_distance",
         decision_rule: str = "weighted_average",
+        *args,
+        **kwargs,
     ) -> None:
         super().__init__()
         self._experts = experts
-        self._learning_rule = LearningRule.create(self.n_experts, key=learning_rule)
-        self._loss_func = LossFunc.create(key=loss_func)
-        self._decision_rule = DecisionRule.create(key=decision_rule)
+        self._learning_rule = LearningRule.create(
+            self.n_experts, key=learning_rule, *args, **kwargs
+        )
+        self._loss_func = LossFunc.create(key=loss_func, *args, **kwargs)
+        self._decision_rule = DecisionRule.create(key=decision_rule, *args, **kwargs)
 
         self._probs: NDArray[float64] = zeros(self.n_experts)
 

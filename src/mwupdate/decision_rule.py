@@ -29,7 +29,7 @@ from numpy.random import choice
 
 
 class ProbabilisticSelection(DecisionRule, key="probabilistic_selection"):
-    def __init__(self) -> None:
+    def __init__(self, *args, **kwargs) -> None:
         super().__init__()
 
     def decide(
@@ -40,7 +40,7 @@ class ProbabilisticSelection(DecisionRule, key="probabilistic_selection"):
 
 
 class WeightedAverage(DecisionRule, key="weighted_average"):
-    def __init__(self) -> None:
+    def __init__(self, *args, **kwargs) -> None:
         super().__init__()
 
     def decide(
@@ -54,7 +54,7 @@ from .baselines.repc import min_f
 
 
 class ProbabilityTrimmed(DecisionRule, key="probability_trimmed"):
-    def __init__(self, f: int, eps: float = 0.001) -> None:
+    def __init__(self, f: int, eps: float = 0.001, *args, **kwargs) -> None:
         super().__init__()
         self._f = f
         self._eps = eps
@@ -74,11 +74,11 @@ class ProbabilityTrimmed(DecisionRule, key="probability_trimmed"):
         return average(outcomes, axis=0, weights=weights)
 
 
-from numpy import clip, inf
+from numpy import clip
 
 
 class BoundedWeightedAverage(DecisionRule, key="bounded_weighted_average"):
-    def __init__(self, min_outcome: float = -inf, max_outcome: float = inf) -> None:
+    def __init__(self, min_outcome: float, max_outcome: float, *args, **kwargs) -> None:
         super().__init__()
         self._min_outcome = min_outcome
         self._max_outcome = max_outcome
