@@ -1,31 +1,87 @@
+from typing import Protocol
 from numpy import float64
-from numpy import array, mean, average, stack, unique, where
-from numpy import ones, zeros, exp, sqrt, log, maximum, minimum
-from numpy.linalg import norm
 from numpy.typing import NDArray
-from numpy.random import choice
-from .utils import min_f
 
 
-def loss_func(j: str, x_js: dict[str, NDArray[float64]]) -> float:
-    return mean([norm(x_js[j] - x_js[k]) for k in x_js], dtype=float64)
+class LossFunc(Protocol):
+    def __call__(self, outcomes: NDArray[float64]) -> NDArray[float64]:
+        """Computes the loss for each expert given their outcomes."""
+        ...
 
 
-class MWUpdate:
-    def __init__(self, experts: list[str], eta: float, eps: float = 0.001) -> None:
+class DecisionRule(Protocol):
+    def decide(
+        self, probs: NDArray[float64], outcomes: NDArray[float64]
+    ) -> NDArray[float64]:
+        """Makes a decision based on the experts' probabilities and outcomes."""
+        ...
+
+
+from abc import ABCMeta, abstractmethod
+
+
+class MWUpdate(metaclass=ABCMeta):
+    REGISTERED_SUBCLASSES: dict[str, type["MWUpdate"]] = {}
+
+    def __init_subclass__(cls, key: str, **kwargs) -> None:
+        super().__init_subclass__(**kwargs)
+        cls.REGISTERED_SUBCLASSES[key] = cls
+
+    def __init__(
+        self, experts: list[str], loss_func: LossFunc, decision_rule: DecisionRule
+    ) -> None:
+        super().__init__()
         self._experts = experts
-        self._probs = ones(len(experts), dtype=float64) / self.n_experts
-        self._cumulative_losses = zeros(len(experts), dtype=float64)
+        self._loss_func = loss_func
+        self._decision_rule = decision_rule
 
-        # self._eta = eta
+        self._probs: NDArray[float64] = ones(len(experts)) / self.n_experts
+        self._cumulative_losses: NDArray[float64] = zeros(self.n_experts)
 
+    @property
+    def n_experts(self) -> int:
+        return len(self._experts)
+
+    @property
+    def probs(self) -> dict[str, float]:
+        return {j: self._probs[i] for i, j in enumerate(self._experts)}
+
+    @classmethod
+    def create(
+        cls,
+        experts: list[str],
+        loss_func: LossFunc,
+        decision_rule: DecisionRule,
+        key: str = "adahedge",
+        *args,
+        **kwargs,
+    ) -> "MWUpdate":
+        if key not in cls.REGISTERED_SUBCLASSES:
+            raise ValueError(f"Unknown MWUpdate key: {key}")
+        subclass = cls.REGISTERED_SUBCLASSES[key]
+        return subclass(experts, loss_func, decision_rule, *args, **kwargs)
+
+    @abstractmethod
+    def make_decision(self, outcomes: dict[str, NDArray[float64]]) -> NDArray[float64]:
+        pass
+
+
+from numpy import stack
+from numpy import ones, zeros, exp, sqrt, log
+
+
+class Hedge(MWUpdate, key="hedge"):
+    def __init__(
+        self,
+        experts: list[str],
+        loss_func: LossFunc,
+        decision_rule: DecisionRule,
+        eta: float | None = None,
+    ) -> None:
+        super().__init__(experts, loss_func, decision_rule)
+
+        self._eta = eta
         self._t = 1
-        self._f = self.n_experts // 3
-        self._eps = eps
-        self._eps_t = self._eps
-
-        self._max_outcome: float = 100.0
-        self._min_outcome: float = -100.0
 
     @property
     def probs(self) -> dict[str, float]:
@@ -36,47 +92,89 @@ class MWUpdate:
         return len(self._experts)
 
     @property
-    def _eta(self) -> float:
-        return sqrt(log(self.n_experts) / self._t)
+    def eta(self) -> float:
+        if self._eta is None:
+            return sqrt(log(self.n_experts) / self._t)
+        else:
+            return self._eta
 
-    def _update_probs(self, outcomes: dict[str, NDArray[float64]]) -> None:
-        losses = array([loss_func(j, outcomes) for j in self._experts], dtype=float64)
+    def _compute_losses(self, outcomes: NDArray[float64]) -> NDArray[float64]:
+        losses = self._loss_func(outcomes)
         max_loss = max(losses.max(), 1.0)
         normalized_losses = losses / max_loss
-        self._cumulative_losses += normalized_losses
+        return normalized_losses
 
-        weights = exp(-self._eta * self._cumulative_losses)
+    def _update_probs(self, losses: NDArray[float64]) -> None:
+        self._cumulative_losses += losses
+        weights = exp(-self.eta * self._cumulative_losses)
         self._probs = weights / weights.sum()
 
-    def make_prediction(
-        self, outcomes: dict[str, NDArray[float64]]
-    ) -> NDArray[float64]:
-        self._update_probs(outcomes)
-
+    def make_decision(self, outcomes: dict[str, NDArray[float64]]) -> NDArray[float64]:
         outcomes_ = stack([outcomes[j] for j in self._experts], dtype=float64)
 
-        # 1. Probabilistic selection
-        # idx = choice(self.n_experts, p=self._probs)
+        losses = self._compute_losses(outcomes_)
+        self._update_probs(losses)
 
-        # return outcomes_[idx]
+        self._t += 1
 
-        # 2. Weighted average
-        # return average(outcomes_, axis=0, weights=self._probs)
+        return self._decision_rule.decide(self._probs, outcomes_)
 
-        # 3. Probability-trimmed weighting
-        # min_f_prob = min_f(self._probs, f=self._f)
-        # if min_f_prob is None:
-        #     return average(outcomes_, axis=0)
 
-        # weights = where(self._probs > min_f_prob, 1.0, self._eps_t)
+from numpy import inf
+from numpy import where
 
-        # self._t += 1
-        # self._eps_t *= self._eps
 
-        # return average(outcomes_, axis=0, weights=weights)
+class AdaHedge(MWUpdate, key="adahedge"):
+    def __init__(
+        self, experts: list[str], loss_func: LossFunc, decision_rule: DecisionRule
+    ) -> None:
+        super().__init__(experts, loss_func, decision_rule)
 
-        # 4. Bounded weighted average
-        outcomes_ = maximum(outcomes_, self._min_outcome)
-        outcomes_ = minimum(outcomes_, self._max_outcome)
+        self._cumulative_mix_gap = 0.0
 
-        return average(outcomes_, axis=0, weights=self._probs)
+    def _compute_eta(self) -> float:
+        if self._cumulative_mix_gap == 0.0:
+            return inf
+        else:
+            return log(self.n_experts) / self._cumulative_mix_gap
+
+    def _compute_losses(self, outcomes: NDArray[float64]) -> NDArray[float64]:
+        losses = self._loss_func(outcomes)
+        max_loss = max(losses.max(), 1.0)
+        normalized_losses = losses / max_loss
+        return normalized_losses
+
+    def _mix(self, eta: float) -> tuple[NDArray[float64], float]:
+        min_cum_loss: float = self._cumulative_losses.min()
+
+        if eta == inf:
+            weights = where(self._cumulative_losses == min_cum_loss, 1.0, 0.0)
+        else:
+            weights = exp(-eta * (self._cumulative_losses - min_cum_loss))
+
+        weights_sum = weights.sum()
+
+        probs = weights / weights_sum
+        mix_loss = min_cum_loss - log(weights_sum / self.n_experts) / eta
+
+        return probs, mix_loss
+
+    def _update_probs(self, losses: NDArray[float64]) -> None:
+        eta = self._compute_eta()
+
+        self._probs, mix_loss_prev = self._mix(eta)
+        mixed_loss = self._probs @ losses
+        self._cumulative_losses += losses
+
+        _, mix_loss = self._mix(eta)
+
+        mix_gap = max(0.0, mixed_loss - mix_loss + mix_loss_prev)
+        self._cumulative_mix_gap += mix_gap
+
+    def make_decision(self, outcomes: dict[str, NDArray[float64]]) -> NDArray[float64]:
+        outcomes_ = stack([outcomes[j] for j in self._experts], axis=0)
+
+        losses = self._compute_losses(outcomes_)
+        self._update_probs(losses)
+
+        return self._decision_rule.decide(self._probs, outcomes_)

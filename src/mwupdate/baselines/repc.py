@@ -1,12 +1,29 @@
-from numpy import float64, mean, ones, array, where, stack, average, append
+from numpy import float64
+from numpy import mean, where, vstack, average, append, unique
+from numpy import ones, newaxis
 from numpy.typing import NDArray
 from numpy.linalg import norm
-from ..utils import min_f
 
 
-# 考虑到后续可能会有其它的惩罚函数，因此不把这个函数写在utils里
-def loss_func(j: str, x_js: dict[str, NDArray[float64]]) -> float:
-    return mean([norm(x_js[j] - x_js[k]) for k in x_js], dtype=float64)
+def min_f(probs: NDArray[float64], f: int) -> float | None:
+    """
+    The min-f score is defined as the f-th smallest unique score in the array,
+    but it is not allowed to be the largest score.
+    If there is only one unique score, return None to indicate that all scores are equal.
+    """
+
+    if probs.size == 0:
+        raise ValueError("Probabilities array is empty.")
+
+    deduped_probs = unique(probs)
+
+    if len(deduped_probs) == 1:
+        return None
+
+    if f >= len(deduped_probs):
+        return deduped_probs[-2]
+    else:
+        return deduped_probs[f - 1]
 
 
 class RepC:
@@ -19,8 +36,16 @@ class RepC:
         self._eps = eps
         self._confidence = eps
 
-    def _reputation_update(self, neighbor_states: dict[str, NDArray[float64]]) -> None:
-        losses = array([loss_func(j, neighbor_states) for j in self._neighbors])
+    @property
+    def n_neighbors(self) -> int:
+        return len(self._neighbors)
+
+    def _reputation_update(self, neighbor_states: NDArray[float64]) -> None:
+        # differences shape: (n_neighbors, n_neighbors, state_dim)
+        # Compute pairwise differences between neighbor states
+        differences = neighbor_states[:, newaxis, :] - neighbor_states[newaxis, :, :]
+        distances = norm(differences, axis=2)
+        losses = mean(distances, axis=1)
         self._scores = 1.0 - losses
 
     def _reputation_normalization(self) -> None:
@@ -35,15 +60,17 @@ class RepC:
 
         self._confidence *= self._eps
 
-    def aggregate_states(
+    def aggregate(
         self,
         local_state: NDArray[float64],
         neighbor_states: dict[str, NDArray[float64]],
     ) -> NDArray[float64]:
-        self._reputation_update(neighbor_states)
+        neighbor_states_ = vstack([neighbor_states[j] for j in self._neighbors])
+
+        self._reputation_update(neighbor_states_)
         self._reputation_normalization()
 
-        states = stack([neighbor_states[j] for j in self._neighbors] + [local_state])
+        states = vstack((neighbor_states_, local_state))
         weights = append(self._scores, 1.0)
 
         return average(states, axis=0, weights=weights)
