@@ -89,11 +89,14 @@ class AdaHedge(LearningRule, key="adahedge"):
     def compute_probs(self, losses: NDArray[float64]) -> NDArray[float64]:
         eta = self._compute_eta()
 
-        probs, mix_loss_prev = self._mix(eta)
-        mixed_loss = probs @ losses
+        probs_prev, mix_loss_prev = self._mix(eta)
+        mixed_loss = probs_prev @ losses
         self._cumulative_losses += losses
 
-        _, mix_loss = self._mix(eta)
+        # This is not the same as AdaHedge paper, but works better in my case.
+        # The paper use probs_prev as the new probs.
+        # Theoretical analysis is needed to justify this change.
+        probs, mix_loss = self._mix(eta)
 
         mix_gap = max(0.0, mixed_loss - mix_loss + mix_loss_prev)
         self._cumulative_mix_gap += mix_gap
