@@ -1,7 +1,7 @@
 from numpy import float64, stack, zeros
 from numpy.typing import NDArray
-from .policy import Policy
-from .loss_func import LossFunc
+from ._policy import Policy
+from ._loss_func import LossFunc
 
 
 class MWUpdate:
