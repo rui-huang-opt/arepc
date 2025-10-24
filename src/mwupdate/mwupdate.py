@@ -15,19 +15,18 @@ class MWUpdate:
     def __init__(
         self,
         experts: list[str],
-        learning_rule: str = "adahedge",
+        learning_rule: str = "exponentiated_gradient",
         loss_func: str = "median_distance",
-        decision_rule: str = "probabilistic_selection",
-        *args,
-        **kwargs,
+        decision_rule: str = "weighted_average",
+        eta: float | None = None,
     ) -> None:
         super().__init__()
         self._experts = experts
         self._learning_rule = LearningRule.create(
-            self.n_experts, key=learning_rule, *args, **kwargs
+            self.n_experts, eta, key=learning_rule
         )
-        self._loss_func = LossFunc.create(key=loss_func, *args, **kwargs)
-        self._decision_rule = DecisionRule.create(key=decision_rule, *args, **kwargs)
+        self._loss_func = LossFunc.create(key=loss_func)
+        self._decision_rule = DecisionRule.create(key=decision_rule)
 
         self._probs: NDArray[float64] = zeros(self.n_experts)
 
