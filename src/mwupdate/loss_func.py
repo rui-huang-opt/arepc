@@ -1,9 +1,7 @@
+from abc import ABCMeta, abstractmethod
 from numpy import float64, mean, newaxis
 from numpy.typing import NDArray
 from numpy.linalg import norm
-
-
-from abc import ABCMeta, abstractmethod
 
 
 class LossFunc(metaclass=ABCMeta):
@@ -23,8 +21,7 @@ class LossFunc(metaclass=ABCMeta):
         return cls.REGISTERED_SUBCLASSES[key](*args, **kwargs)
 
     @abstractmethod
-    def __call__(self, outcomes: NDArray[float64]) -> NDArray[float64]:
-        pass
+    def __call__(self, outcomes: NDArray[float64]) -> NDArray[float64]: ...
 
 
 class PairwiseDistanceLoss(LossFunc, key="pairwise_distance"):
@@ -35,3 +32,16 @@ class PairwiseDistanceLoss(LossFunc, key="pairwise_distance"):
         differences = outcomes[:, newaxis, :] - outcomes[newaxis, :, :]
         distances = norm(differences, axis=2)
         return mean(distances, axis=1)
+
+
+from numpy import median
+
+
+class MedianDistanceLoss(LossFunc, key="median_distance"):
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__()
+
+    def __call__(self, outcomes: NDArray[float64]) -> NDArray[float64]:
+        median_outcome = median(outcomes, axis=0)
+        distances = norm(outcomes - median_outcome, axis=1)
+        return distances

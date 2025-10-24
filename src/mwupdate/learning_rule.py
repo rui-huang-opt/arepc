@@ -1,6 +1,6 @@
+from abc import ABCMeta, abstractmethod
 from numpy import float64
 from numpy.typing import NDArray
-from abc import ABCMeta, abstractmethod
 
 
 class LearningRule(metaclass=ABCMeta):

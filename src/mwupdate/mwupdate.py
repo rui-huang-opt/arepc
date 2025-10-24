@@ -16,8 +16,8 @@ class MWUpdate:
         self,
         experts: list[str],
         learning_rule: str = "adahedge",
-        loss_func: str = "pairwise_distance",
-        decision_rule: str = "weighted_average",
+        loss_func: str = "median_distance",
+        decision_rule: str = "probabilistic_selection",
         *args,
         **kwargs,
     ) -> None:
