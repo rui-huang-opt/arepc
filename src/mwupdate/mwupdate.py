@@ -1,8 +1,7 @@
 from numpy import float64, stack, zeros
 from numpy.typing import NDArray
-from .learning_rule import LearningRule
+from .policy import Policy
 from .loss_func import LossFunc
-from .decision_rule import DecisionRule
 
 
 class MWUpdate:
@@ -16,17 +15,13 @@ class MWUpdate:
         self,
         experts: list[str],
         learning_rule: str = "exponentiated_gradient",
-        loss_func: str = "median_distance",
-        decision_rule: str = "weighted_average",
+        loss_func: str = "pairwise_dispersion",
         eta: float | None = None,
     ) -> None:
         super().__init__()
         self._experts = experts
-        self._learning_rule = LearningRule.create(
-            self.n_experts, eta, key=learning_rule
-        )
+        self._policy = Policy.create(self.n_experts, eta, key=learning_rule)
         self._loss_func = LossFunc.create(key=loss_func)
-        self._decision_rule = DecisionRule.create(key=decision_rule)
 
         self._probs: NDArray[float64] = zeros(self.n_experts)
 
@@ -38,16 +33,10 @@ class MWUpdate:
     def probs(self) -> dict[str, float]:
         return {j: self._probs[i] for i, j in enumerate(self._experts)}
 
-    def _compute_losses(self, outcomes: NDArray[float64]) -> NDArray[float64]:
-        losses = self._loss_func(outcomes)
-        max_loss = max(losses.max(), 1.0)
-        normalized_losses = losses / max_loss
-        return normalized_losses
-
     def make_decision(self, outcomes: dict[str, NDArray[float64]]) -> NDArray[float64]:
         outcomes_ = stack([outcomes[j] for j in self._experts], dtype=float64)
 
-        losses = self._compute_losses(outcomes_)
-        self._probs = self._learning_rule.compute_probs(losses)
+        losses = self._loss_func(outcomes_)
+        self._probs = self._policy(losses)
 
-        return self._decision_rule.decide(self._probs, outcomes_)
+        return self._probs @ outcomes_
