@@ -1,5 +1,5 @@
 from numpy import float64
-from numpy import mean, where, vstack, average, append, unique
+from numpy import mean, where, vstack, unique
 from numpy import ones, newaxis
 from numpy.typing import NDArray
 from numpy.linalg import norm
@@ -34,8 +34,12 @@ class RepC:
         self._scores = ones(len(neighbors), dtype=float64)
         self._f = len(neighbors) // 3
         self._alpha = alpha
+
+        if not (0.0 < eps < 1.0):
+            raise ValueError("eps must be in the range (0, 1).")
+
         self._eps = eps
-        self._confidence = eps
+        self._eps_t = eps
 
     @property
     def n_neighbors(self) -> int:
@@ -47,8 +51,6 @@ class RepC:
         return {j: probs[i] for i, j in enumerate(self._neighbors)}
 
     def _reputation_update(self, neighbor_states: NDArray[float64]) -> None:
-        # differences shape: (n_neighbors, n_neighbors, state_dim)
-        # Compute pairwise differences between neighbor states
         differences = neighbor_states[:, newaxis, :] - neighbor_states[newaxis, :, :]
         distances = norm(differences, axis=2)
         losses = mean(distances, axis=1)
@@ -62,9 +64,9 @@ class RepC:
         else:
             max_score = self._scores.max()
             new_scores = (self._scores - min_f_score) / (max_score - min_f_score)
-            self._scores = where(new_scores > 0, new_scores, self._confidence)
+            self._scores = where(new_scores > 0, new_scores, self._eps_t)
 
-        self._confidence *= self._eps
+        self._eps_t *= self._eps
 
     def aggregate(
         self,
