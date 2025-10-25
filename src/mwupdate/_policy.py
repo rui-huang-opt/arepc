@@ -27,17 +27,22 @@ class Policy(metaclass=ABCMeta):
         ...
 
 
-from numpy import exp
+from numpy import exp, zeros, roll
 
 
 class ExponentiatedGradient(Policy, key="exponentiated_gradient"):
-    def __init__(self, n_experts: int, eta: float, *args, **kwargs) -> None:
+    def __init__(
+        self, n_experts: int, eta: float, memory: int = 1, *args, **kwargs
+    ) -> None:
         super().__init__(n_experts)
 
         self._eta = eta
+        self._losses_history = zeros((memory, self._n_experts), dtype=float64)
 
     def __call__(self, losses: NDArray[float64]) -> NDArray[float64]:
-        weights = exp(-self._eta * losses)
+        self._losses_history = roll(self._losses_history, shift=-1, axis=0)
+        self._losses_history[-1, :] = losses
+        weights = exp(-self._eta * self._losses_history.mean(axis=0))
         probs = weights / weights.sum()
         return probs
 

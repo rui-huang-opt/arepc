@@ -17,10 +17,14 @@ class MWUpdate:
         learning_rule: str = "exponentiated_gradient",
         loss_func: str = "pairwise_dispersion",
         eta: float | None = None,
+        *args,
+        **kwargs,
     ) -> None:
         super().__init__()
         self._experts = experts
-        self._policy = Policy.create(self.n_experts, eta, key=learning_rule)
+        self._policy = Policy.create(
+            self.n_experts, eta, *args, key=learning_rule, **kwargs
+        )
         self._loss_func = LossFunc.create(key=loss_func)
 
         self._probs: NDArray[float64] = zeros(self.n_experts)
