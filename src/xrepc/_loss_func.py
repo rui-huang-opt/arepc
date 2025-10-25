@@ -15,7 +15,7 @@ class LossFunc(metaclass=ABCMeta):
         super().__init__()
 
     @classmethod
-    def create(cls, key: str = "pairwise_distance", *args, **kwargs) -> "LossFunc":
+    def create(cls, key: str, *args, **kwargs) -> "LossFunc":
         if key not in cls.REGISTERED_SUBCLASSES:
             raise ValueError(f"Unknown LossFunc key: {key}")
         return cls.REGISTERED_SUBCLASSES[key](*args, **kwargs)
@@ -34,7 +34,12 @@ class LossFunc(metaclass=ABCMeta):
         return normalized_losses
 
 
-class PairwiseDispersionLoss(LossFunc, key="pairwise_dispersion"):
+class MeanPairwiseDistance(LossFunc, key="mean_pairwise_distance"):
+    """
+    Mean pairwise distance loss function implementation.
+    The mean pairwise distance loss measures how far each outcome is from the others on average.
+    """
+
     def __init__(self, *args, **kwargs) -> None:
         super().__init__()
 
@@ -47,11 +52,17 @@ class PairwiseDispersionLoss(LossFunc, key="pairwise_dispersion"):
 from numpy import median
 
 
-class MedianDeviationLoss(LossFunc, key="median_deviation"):
+class DistanceFromMedian(LossFunc, key="distance_from_median"):
+    """
+    Distance from element-wise median loss function implementation.
+    This loss measures how far each outcome is from the median outcome.
+    The distance is computed using the L1 norm.
+    """
+
     def __init__(self, *args, **kwargs) -> None:
         super().__init__()
 
     def _compute(self, outcomes: NDArray[float64]) -> NDArray[float64]:
         median_outcome = median(outcomes, axis=0)
-        distances = norm(outcomes - median_outcome, axis=1)
+        distances = norm(outcomes - median_outcome, axis=1, ord=1)
         return distances

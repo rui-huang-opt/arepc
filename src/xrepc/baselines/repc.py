@@ -29,16 +29,22 @@ def min_f(probs: NDArray[float64], f: int) -> float | None:
 class RepC:
     """Reputation-based Consensus (RepC) baseline implementation."""
 
-    def __init__(self, neighbors: list[str], eps: float = 0.001) -> None:
+    def __init__(self, neighbors: list[str], alpha: float, eps: float = 0.001) -> None:
         self._neighbors = neighbors
         self._scores = ones(len(neighbors), dtype=float64)
         self._f = len(neighbors) // 3
+        self._alpha = alpha
         self._eps = eps
         self._confidence = eps
 
     @property
     def n_neighbors(self) -> int:
         return len(self._neighbors)
+
+    @property
+    def probs(self) -> dict[str, float]:
+        probs = self._scores / self._scores.sum()
+        return {j: probs[i] for i, j in enumerate(self._neighbors)}
 
     def _reputation_update(self, neighbor_states: NDArray[float64]) -> None:
         # differences shape: (n_neighbors, n_neighbors, state_dim)
@@ -70,7 +76,7 @@ class RepC:
         self._reputation_update(neighbor_states_)
         self._reputation_normalization()
 
-        states = vstack((neighbor_states_, local_state))
-        weights = append(self._scores, 1.0)
+        probs = self._scores / self._scores.sum()
+        estimate = probs @ neighbor_states_
 
-        return average(states, axis=0, weights=weights)
+        return (1 - self._alpha) * local_state + self._alpha * estimate
