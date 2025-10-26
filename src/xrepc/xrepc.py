@@ -9,13 +9,14 @@ class XRepC:
         neighbors: list[str],
         alpha: float,
         eta: float,
-        loss_func: str = "mean_pairwise_distance",
+        loss_func: str = "distance_from_median",
     ) -> None:
         super().__init__()
         self._neighbors = neighbors
         self._alpha = alpha
         self._eta = eta
         self._loss_func = LossFunc.create(key=loss_func)
+        self._losses = zeros(self.n_neighbors, dtype=float64)
         self._probs = zeros(self.n_neighbors, dtype=float64)
 
     @property
@@ -23,12 +24,16 @@ class XRepC:
         return len(self._neighbors)
 
     @property
+    def losses(self) -> dict[str, float]:
+        return {j: self._losses[i] for i, j in enumerate(self._neighbors)}
+
+    @property
     def probs(self) -> dict[str, float]:
         return {j: self._probs[i] for i, j in enumerate(self._neighbors)}
 
     def _update_probs(self, outcomes: NDArray[float64]) -> None:
-        losses = self._loss_func(outcomes)
-        weights = exp(-self._eta * losses)
+        self._losses = self._loss_func(outcomes)
+        weights = exp(-self._eta * self._losses)
         self._probs = weights / weights.sum()
 
     def aggregate(

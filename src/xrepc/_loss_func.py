@@ -21,8 +21,8 @@ class LossFunc(metaclass=ABCMeta):
         return cls.REGISTERED_SUBCLASSES[key](*args, **kwargs)
 
     def _normalize(self, losses: NDArray[float64]) -> NDArray[float64]:
-        max_loss = max(losses.max(), 1.0)
-        normalized_losses = losses / max_loss
+        norm_losses = norm(losses)
+        normalized_losses = losses / norm_losses if norm_losses > 1.0 else losses
         return normalized_losses
 
     @abstractmethod
@@ -34,10 +34,10 @@ class LossFunc(metaclass=ABCMeta):
         return normalized_losses
 
 
-class MeanPairwiseDistance(LossFunc, key="mean_pairwise_distance"):
+class MeanDistance(LossFunc, key="mean_distance"):
     """
-    Mean pairwise distance loss function implementation.
-    The mean pairwise distance loss measures how far each outcome is from the others on average.
+    Mean distance loss function implementation.
+    The mean distance loss measures how far each outcome is from the others on average.
     """
 
     def __init__(self, *args, **kwargs) -> None:
