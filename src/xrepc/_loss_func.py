@@ -20,18 +20,8 @@ class LossFunc(metaclass=ABCMeta):
             raise ValueError(f"Unknown LossFunc key: {key}")
         return cls.REGISTERED_SUBCLASSES[key](*args, **kwargs)
 
-    def _normalize(self, losses: NDArray[float64]) -> NDArray[float64]:
-        norm_losses = norm(losses)
-        normalized_losses = losses / norm_losses if norm_losses > 1.0 else losses
-        return normalized_losses
-
     @abstractmethod
-    def _compute(self, outcomes: NDArray[float64]) -> NDArray[float64]: ...
-
-    def __call__(self, outcomes: NDArray[float64]) -> NDArray[float64]:
-        losses = self._compute(outcomes)
-        normalized_losses = self._normalize(losses)
-        return normalized_losses
+    def __call__(self, outcomes: NDArray[float64]) -> NDArray[float64]: ...
 
 
 class MeanDistance(LossFunc, key="mean_distance"):
@@ -43,7 +33,7 @@ class MeanDistance(LossFunc, key="mean_distance"):
     def __init__(self, *args, **kwargs) -> None:
         super().__init__()
 
-    def _compute(self, outcomes: NDArray[float64]) -> NDArray[float64]:
+    def __call__(self, outcomes: NDArray[float64]) -> NDArray[float64]:
         differences = outcomes[:, newaxis, :] - outcomes[newaxis, :, :]
         distances = norm(differences, axis=2)
         return mean(distances, axis=1)
@@ -62,7 +52,7 @@ class DistanceFromMedian(LossFunc, key="distance_from_median"):
     def __init__(self, *args, **kwargs) -> None:
         super().__init__()
 
-    def _compute(self, outcomes: NDArray[float64]) -> NDArray[float64]:
+    def __call__(self, outcomes: NDArray[float64]) -> NDArray[float64]:
         median_outcome = median(outcomes, axis=0)
         distances = norm(outcomes - median_outcome, axis=1, ord=1)
         return distances
