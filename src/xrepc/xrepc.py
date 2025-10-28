@@ -1,4 +1,4 @@
-from numpy import float64, stack, exp, zeros, roll
+from numpy import float64, stack, exp, zeros
 from numpy.typing import NDArray
 from ._loss_func import LossFunc
 
@@ -11,6 +11,7 @@ class XRepC:
         eta: float,
         loss_func: str = "distance_from_median",
         decay_factor: float = 0.3,
+        normalize_losses: bool = False,
     ) -> None:
         super().__init__()
         self._neighbors = neighbors
@@ -22,8 +23,8 @@ class XRepC:
             raise ValueError("decay_factor must be in [0, 1].")
 
         self._decay_factor = decay_factor
+        self._normalize_losses = normalize_losses
 
-        self._losses = zeros(self.n_neighbors, dtype=float64)
         self._losses_memory = zeros(self.n_neighbors, dtype=float64)
         self._probs = zeros(self.n_neighbors, dtype=float64)
 
@@ -32,19 +33,20 @@ class XRepC:
         return len(self._neighbors)
 
     @property
-    def losses(self) -> dict[str, float]:
-        return {j: self._losses[i] for i, j in enumerate(self._neighbors)}
-
-    @property
     def probs(self) -> dict[str, float]:
         return {j: self._probs[i] for i, j in enumerate(self._neighbors)}
 
     def _update_probs(self, outcomes: NDArray[float64]) -> None:
-        self._losses = self._loss_func(outcomes)
+        losses = self._loss_func(outcomes)
+
+        if self._normalize_losses:
+            max_loss = max(losses.max(), 1.0)
+            losses = losses / max_loss
+
         self._losses_memory *= self._decay_factor
-        self._losses_memory += self._losses
-        weights = exp(-self._eta * self._losses_memory)
-        self._probs = weights / weights.sum()
+        self._losses_memory += losses
+
+        self._probs = softmax(-self._eta * self._losses_memory)
 
     def aggregate(
         self,
@@ -55,3 +57,17 @@ class XRepC:
         self._update_probs(n_states)
 
         return (1 - self._alpha) * local_state + self._alpha * (self._probs @ n_states)
+
+
+def softmax(logits: NDArray[float64]) -> NDArray[float64]:
+    """
+    Compute softmax probabilities from logits.
+    The formula used is:
+        softmax(x_i) = exp(x_i - max(x)) / sum_j exp(x_j - max(x))
+    This formulation improves numerical stability by subtracting the maximum logit.
+    """
+
+    max_logit = logits.max()
+    logits_shifted = logits - max_logit  # For numerical stability
+    weights = exp(logits_shifted)
+    return weights / weights.sum()

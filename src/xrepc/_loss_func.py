@@ -15,7 +15,7 @@ class LossFunc(metaclass=ABCMeta):
         super().__init__()
 
     @classmethod
-    def create(cls, key: str, *args, **kwargs) -> "LossFunc":
+    def create(cls, *args, key: str, **kwargs) -> "LossFunc":
         if key not in cls.REGISTERED_SUBCLASSES:
             raise ValueError(f"Unknown LossFunc key: {key}")
         return cls.REGISTERED_SUBCLASSES[key](*args, **kwargs)
@@ -36,7 +36,8 @@ class MeanDistance(LossFunc, key="mean_distance"):
     def __call__(self, outcomes: NDArray[float64]) -> NDArray[float64]:
         differences = outcomes[:, newaxis, :] - outcomes[newaxis, :, :]
         distances = norm(differences, axis=2)
-        return mean(distances, axis=1)
+        losses = mean(distances, axis=1)
+        return losses
 
 
 from numpy import median
@@ -54,5 +55,5 @@ class DistanceFromMedian(LossFunc, key="distance_from_median"):
 
     def __call__(self, outcomes: NDArray[float64]) -> NDArray[float64]:
         median_outcome = median(outcomes, axis=0)
-        distances = norm(outcomes - median_outcome, axis=1, ord=1)
-        return distances
+        losses = norm(outcomes - median_outcome, axis=1, ord=1)
+        return losses
