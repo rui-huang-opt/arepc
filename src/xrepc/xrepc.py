@@ -40,7 +40,7 @@ class XRepC:
         losses = self._loss_func(outcomes)
 
         if self._normalize_losses:
-            max_loss = max(losses.max(), 1.0)
+            max_loss: float = max(losses.max(), 1.0)
             losses = losses / max_loss
 
         self._losses_memory *= self._decay_factor
@@ -53,10 +53,11 @@ class XRepC:
         local_state: NDArray[float64],
         neighbor_states: dict[str, NDArray[float64]],
     ) -> NDArray[float64]:
-        n_states = stack([neighbor_states[j] for j in self._neighbors], dtype=float64)
-        self._update_probs(n_states)
+        outcomes = stack([neighbor_states[j] for j in self._neighbors])
+        self._update_probs(outcomes)
+        prediction = self._probs @ outcomes
 
-        return (1 - self._alpha) * local_state + self._alpha * (self._probs @ n_states)
+        return (1 - self._alpha) * local_state + self._alpha * prediction
 
 
 def softmax(logits: NDArray[float64]) -> NDArray[float64]:
@@ -70,4 +71,5 @@ def softmax(logits: NDArray[float64]) -> NDArray[float64]:
     max_logit = logits.max()
     logits_shifted = logits - max_logit  # For numerical stability
     weights = exp(logits_shifted)
+
     return weights / weights.sum()
