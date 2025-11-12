@@ -24,10 +24,10 @@ class LossFunc(metaclass=ABCMeta):
     def __call__(self, outcomes: NDArray[float64]) -> NDArray[float64]: ...
 
 
-class MeanDistance(LossFunc, key="mean_distance"):
+class Inconsistency(LossFunc, key="inconsistency"):
     """
-    Mean distance loss function implementation.
-    The mean distance loss measures how far each outcome is from the others on average.
+    Inconsistency loss function implementation.
+    The inconsistency loss measures how far each outcome is from the others on average.
     """
 
     def __init__(self, *args, **kwargs) -> None:

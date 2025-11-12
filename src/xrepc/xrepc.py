@@ -10,7 +10,7 @@ class XRepC:
         alpha: float,
         eta: float,
         loss_func: str = "distance_from_median",
-        decay_factor: float = 0.3,
+        decay: float = 0.3,
         normalize_losses: bool = False,
     ) -> None:
         super().__init__()
@@ -19,10 +19,10 @@ class XRepC:
         self._eta = eta
         self._loss_func = LossFunc.create(key=loss_func)
 
-        if not (0.0 <= decay_factor <= 1.0):
-            raise ValueError("decay_factor must be in [0, 1].")
+        if not (0.0 <= decay <= 1.0):
+            raise ValueError("decay factor must be in [0, 1].")
 
-        self._decay_factor = decay_factor
+        self._decay = decay
         self._normalize_losses = normalize_losses
 
         self._losses_memory = zeros(self.n_neighbors, dtype=float64)
@@ -43,7 +43,7 @@ class XRepC:
             max_loss: float = max(losses.max(), 1.0)
             losses = losses / max_loss
 
-        self._losses_memory *= self._decay_factor
+        self._losses_memory *= self._decay
         self._losses_memory += losses
 
         self._probs = softmax(-self._eta * self._losses_memory)
