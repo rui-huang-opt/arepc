@@ -11,6 +11,6 @@ Or, for development:
 
 ```bash
 git clone https://github.com/rui-huang-opt/xrepc.git
-cd topolink
+cd xrepc
 pip install -e .
 ```
