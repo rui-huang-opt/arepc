@@ -9,7 +9,7 @@ class XRepC:
         neighbors: list[str],
         alpha: float,
         eta: float,
-        loss_func: str = "distance_from_median",
+        loss_func: str = "coordinate_wise_median",
         decay: float = 0.3,
         normalize_losses: bool = False,
     ) -> None:

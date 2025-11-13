@@ -24,10 +24,10 @@ class LossFunc(metaclass=ABCMeta):
     def __call__(self, outcomes: NDArray[float64]) -> NDArray[float64]: ...
 
 
-class Inconsistency(LossFunc, key="inconsistency"):
+class QuasiGeometricMedian(LossFunc, key="quasi_geometric_median"):
     """
-    Inconsistency loss function implementation.
-    The inconsistency loss measures how far each outcome is from the others on average.
+    Quasi-geometric median loss function implementation.
+    The quasi-geometric median loss measures how far each outcome is from the others on average.
     """
 
     def __init__(self, *args, **kwargs) -> None:
@@ -43,11 +43,10 @@ class Inconsistency(LossFunc, key="inconsistency"):
 from numpy import median
 
 
-class DistanceFromMedian(LossFunc, key="distance_from_median"):
+class CoordinateWiseMedian(LossFunc, key="coordinate_wise_median"):
     """
-    Distance from element-wise median loss function implementation.
-    This loss measures how far each outcome is from the median outcome.
-    The distance is computed using the L1 norm.
+    Distance from coordinate-wise median loss function implementation.
+    This loss measures the L1 distance of each outcome from the coordinate-wise median of all outcomes.
     """
 
     def __init__(self, *args, **kwargs) -> None:
