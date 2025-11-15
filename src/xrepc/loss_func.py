@@ -54,5 +54,23 @@ class CoordinateWiseMedian(LossFunc, key="coordinate_wise_median"):
 
     def __call__(self, outcomes: NDArray[float64]) -> NDArray[float64]:
         median_outcome = median(outcomes, axis=0)
-        losses = norm(outcomes - median_outcome, axis=1, ord=1)
+        losses = norm(outcomes - median_outcome, axis=1)
+        return losses
+
+
+from .utils import geometric_median
+
+
+class GeometricMedian(LossFunc, key="geometric_median"):
+    """
+    Geometric median loss function implementation.
+    This loss measures the Euclidean distance of each outcome from the geometric median of all outcomes.
+    """
+
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__()
+
+    def __call__(self, outcomes: NDArray[float64]) -> NDArray[float64]:
+        geo_median = geometric_median(outcomes)
+        losses = norm(outcomes - geo_median, axis=1)
         return losses

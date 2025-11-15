@@ -1,6 +1,6 @@
 from numpy import float64, stack, exp, zeros
 from numpy.typing import NDArray
-from ._loss_func import LossFunc
+from .loss_func import LossFunc
 
 
 class XRepC:
