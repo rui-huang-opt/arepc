@@ -1,6 +1,7 @@
-from numpy import float64, stack, exp, zeros
+from numpy import float64, stack, zeros
 from numpy.typing import NDArray
 from .loss_func import LossFunc
+from .utils import softmax
 
 
 class XRepC:
@@ -9,9 +10,8 @@ class XRepC:
         neighbors: list[str],
         alpha: float,
         eta: float,
-        loss_func: str = "coordinate_wise_median",
+        loss_func: str = "quasi_geometric_median",
         decay: float = 0.3,
-        normalize_losses: bool = False,
     ) -> None:
         super().__init__()
         self._neighbors = neighbors
@@ -23,7 +23,6 @@ class XRepC:
             raise ValueError("decay factor must be in [0, 1].")
 
         self._decay = decay
-        self._normalize_losses = normalize_losses
 
         self._losses_memory = zeros(self.n_neighbors, dtype=float64)
         self._probs = zeros(self.n_neighbors, dtype=float64)
@@ -38,10 +37,6 @@ class XRepC:
 
     def _update_probs(self, outcomes: NDArray[float64]) -> None:
         losses = self._loss_func(outcomes)
-
-        if self._normalize_losses:
-            max_loss: float = max(losses.max(), 1.0)
-            losses = losses / max_loss
 
         self._losses_memory *= self._decay
         self._losses_memory += losses
@@ -58,18 +53,3 @@ class XRepC:
         prediction = self._probs @ outcomes
 
         return (1 - self._alpha) * local_state + self._alpha * prediction
-
-
-def softmax(logits: NDArray[float64]) -> NDArray[float64]:
-    """
-    Compute softmax probabilities from logits.
-    The formula used is:
-        softmax(x_i) = exp(x_i - max(x)) / sum_j exp(x_j - max(x))
-    This formulation improves numerical stability by subtracting the maximum logit.
-    """
-
-    max_logit = logits.max()
-    logits_shifted = logits - max_logit  # For numerical stability
-    weights = exp(logits_shifted)
-
-    return weights / weights.sum()

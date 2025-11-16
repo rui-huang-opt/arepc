@@ -1,6 +1,6 @@
 from numpy import float64
 from numpy import mean, where, vstack, unique
-from numpy import ones, newaxis
+from numpy import ones
 from numpy.typing import NDArray
 from numpy.linalg import norm
 
@@ -51,7 +51,7 @@ class RepC:
         return {j: probs[i] for i, j in enumerate(self._neighbors)}
 
     def _reputation_update(self, neighbor_states: NDArray[float64]) -> None:
-        differences = neighbor_states[:, newaxis, :] - neighbor_states[newaxis, :, :]
+        differences = neighbor_states[:, None, :] - neighbor_states[None, :, :]
         distances = norm(differences, axis=2)
         losses = mean(distances, axis=1)
         self._scores = 1.0 - losses

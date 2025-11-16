@@ -1,37 +1,57 @@
-from numpy import float64
+from numpy import float64, exp
 from numpy.typing import NDArray
+
+
+def softmax(logits: NDArray[float64]) -> NDArray[float64]:
+    """
+    Compute softmax probabilities from logits.
+    The formula used is:
+        softmax(x_i) = exp(x_i - max(x)) / sum_j exp(x_j - max(x))
+    This formulation improves numerical stability by subtracting the maximum logit.
+    """
+
+    max_logit = logits.max()
+    logits_shifted = logits - max_logit  # For numerical stability
+    weights = exp(logits_shifted)
+
+    return weights / weights.sum()
+
+
 from numpy.linalg import norm
 
 
 def geometric_median(
-    points: NDArray[float64], tol: float = 1e-5, max_iter: int = 500
+    points: NDArray[float64], tol: float = 1e-6, max_iter: int = 1000
 ) -> NDArray[float64]:
     """
     Compute the geometric median of a set of points using Weiszfeld's algorithm.
 
     Parameters:
-    points (NDArray[float64]): An array of points with shape (n_points, n_dimensions).
-    tol (float): Tolerance for convergence. The algorithm stops when the change in the median is less than this value.
-    max_iter (int): Maximum number of iterations.
+    points (NDArray[float64]):
+        An array of shape (n_points, n_dimensions) representing the points.
+
+    tol (float):
+        The tolerance for convergence. Default is 1e-5.
+
+    max_iter (int):
+        The maximum number of iterations. Default is 500.
 
     Returns:
     NDArray[float64]: The geometric median of the points.
     """
 
-    initial_guess = points.mean(axis=0)
-    guess = initial_guess
+    guess = points.mean(axis=0)
 
     for _ in range(max_iter):
         distances = norm(points - guess, axis=1)
-        nonzero_distances = distances != 0
+        nonzero_mask = distances != 0.0
 
-        if not nonzero_distances.any():
+        if not nonzero_mask.any():
             return guess
 
-        inv_distances = 1 / distances[nonzero_distances]
+        inv_distances = 1 / distances[nonzero_mask]
         weights = inv_distances / inv_distances.sum()
-        new_guess = (weights[:, None] * points[nonzero_distances]).sum(axis=0)
-
+        new_guess = weights @ points[nonzero_mask]
         if ((new_guess - guess) ** 2).sum() < tol**2:
             return new_guess
 

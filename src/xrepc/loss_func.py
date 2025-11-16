@@ -1,5 +1,5 @@
 from abc import ABCMeta, abstractmethod
-from numpy import float64, mean, newaxis
+from numpy import float64, mean
 from numpy.typing import NDArray
 from numpy.linalg import norm
 
@@ -34,7 +34,7 @@ class QuasiGeometricMedian(LossFunc, key="quasi_geometric_median"):
         super().__init__()
 
     def __call__(self, outcomes: NDArray[float64]) -> NDArray[float64]:
-        differences = outcomes[:, newaxis, :] - outcomes[newaxis, :, :]
+        differences = outcomes[:, None, :] - outcomes[None, :, :]
         distances = norm(differences, axis=2)
         losses = mean(distances, axis=1)
         return losses
