@@ -1,7 +1,7 @@
 from typing import Sequence
 from numpy import float64, stack, zeros
 from numpy.typing import NDArray
-from .loss_func import LossFunc, CoordinateWiseMedianLoss
+from .loss_func import LossFunc, coordinate_wise_median_loss
 from .utils import softmax
 
 
@@ -21,7 +21,7 @@ class XRepC:
         Learning rate for updating probabilities.
 
     loss_func : LossFunc, optional
-        Loss function to evaluate neighbor outcomes. Defaults to CoordinateWiseMedianLoss.
+        Loss function to evaluate neighbor outcomes. Defaults to coordinate-wise median loss.
 
     decay : float, optional
         Decay factor for past losses, must be in [0, 1]. Defaults to 0.3.
@@ -45,7 +45,7 @@ class XRepC:
         neighbors: Sequence[str],
         alpha: float,
         eta: float,
-        loss_func: LossFunc = CoordinateWiseMedianLoss(),
+        loss_func: LossFunc | None = None,
         decay: float = 0.3,
     ) -> None:
         super().__init__()
@@ -53,7 +53,7 @@ class XRepC:
         self._neighbors = neighbors
         self._alpha = alpha
         self._eta = eta
-        self._loss_func = loss_func
+        self._loss_func = loss_func or coordinate_wise_median_loss
 
         if not (0.0 <= decay <= 1.0):
             raise ValueError("decay factor must be in [0, 1].")
