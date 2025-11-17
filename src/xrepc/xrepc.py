@@ -6,12 +6,46 @@ from .utils import softmax
 
 
 class XRepC:
+    """
+    Exponential Replicator Dynamics for Collaborative Learning (XRepC).
+
+    Parameters
+    ----------
+    neighbors : Sequence[str]
+        List of neighbor identifiers.
+
+    alpha : float
+        Mixing parameter between local state and aggregated prediction.
+
+    eta : float
+        Learning rate for updating probabilities.
+
+    loss_func : LossFunc, optional
+        Loss function to evaluate neighbor outcomes. Defaults to CoordinateWiseMedianLoss.
+
+    decay : float, optional
+        Decay factor for past losses, must be in [0, 1]. Defaults to 0.3.
+
+    Attributes
+    ----------
+    n_neighbors : int
+        Number of neighbors.
+
+    probs : dict[str, float]
+        Current probabilities assigned to each neighbor.
+
+    Methods
+    -------
+    aggregate(local_state: NDArray[float64], neighbor_states: dict[str, NDArray[float64]]) -> NDArray[float64]
+        Aggregates neighbor states with the local state using the XRepC algorithm.
+    """
+
     def __init__(
         self,
         neighbors: Sequence[str],
         alpha: float,
         eta: float,
-        loss_func: LossFunc | None = None,
+        loss_func: LossFunc = CoordinateWiseMedianLoss(),
         decay: float = 0.3,
     ) -> None:
         super().__init__()
@@ -19,7 +53,7 @@ class XRepC:
         self._neighbors = neighbors
         self._alpha = alpha
         self._eta = eta
-        self._loss_func = loss_func or CoordinateWiseMedianLoss()
+        self._loss_func = loss_func
 
         if not (0.0 <= decay <= 1.0):
             raise ValueError("decay factor must be in [0, 1].")
