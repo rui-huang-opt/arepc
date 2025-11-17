@@ -1,23 +1,25 @@
+from typing import Sequence
 from numpy import float64, stack, zeros
 from numpy.typing import NDArray
-from .loss_func import LossFunc
+from .loss_func import LossFunc, CoordinateWiseMedianLoss
 from .utils import softmax
 
 
 class XRepC:
     def __init__(
         self,
-        neighbors: list[str],
+        neighbors: Sequence[str],
         alpha: float,
         eta: float,
-        loss_func: str = "quasi_geometric_median",
+        loss_func: LossFunc | None = None,
         decay: float = 0.3,
     ) -> None:
         super().__init__()
+
         self._neighbors = neighbors
         self._alpha = alpha
         self._eta = eta
-        self._loss_func = LossFunc.create(key=loss_func)
+        self._loss_func = loss_func or CoordinateWiseMedianLoss()
 
         if not (0.0 <= decay <= 1.0):
             raise ValueError("decay factor must be in [0, 1].")
@@ -52,4 +54,4 @@ class XRepC:
         self._update_probs(outcomes)
         prediction = self._probs @ outcomes
 
-        return (1 - self._alpha) * local_state + self._alpha * prediction
+        return local_state * (1 - self._alpha) + prediction * self._alpha
