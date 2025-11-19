@@ -1,19 +1,5 @@
-from typing import Protocol
-from numpy import float64
+from numpy import float64, mean
 from numpy.typing import NDArray
-
-
-class LossFunc(Protocol):
-    """
-    Protocol for loss function implementations.
-    Any loss function class should implement the __call__ method that takes
-    an array of outcomes and returns an array of losses.
-    """
-
-    def __call__(self, outcomes: NDArray[float64]) -> NDArray[float64]: ...
-
-
-from numpy import mean
 from numpy.linalg import norm
 
 

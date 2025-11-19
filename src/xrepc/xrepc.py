@@ -1,8 +1,18 @@
-from typing import Sequence
+from typing import Protocol, Sequence
 from numpy import float64, stack, zeros
 from numpy.typing import NDArray
-from .loss_func import LossFunc, coordinate_wise_median_loss
+from .loss_func import coordinate_wise_median_loss
 from .utils import softmax
+
+
+class LossFunc(Protocol):
+    """
+    Protocol for loss function implementations.
+    Any loss function class should implement the __call__ method that takes
+    an array of outcomes and returns an array of losses.
+    """
+
+    def __call__(self, outcomes: NDArray[float64]) -> NDArray[float64]: ...
 
 
 class XRepC:
