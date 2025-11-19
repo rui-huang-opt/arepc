@@ -34,10 +34,10 @@ from numpy import median
 def coordinate_wise_median_loss(outcomes: NDArray[float64]) -> NDArray[float64]:
     """
     Coordinate-wise median loss function implementation.
-    This loss measures the Euclidean distance of each outcome from the coordinate-wise median of all outcomes.
+    This loss measures the Manhattan distance of each outcome from the coordinate-wise median of all outcomes.
     """
     median_outcome = median(outcomes, axis=0)
-    losses = norm(outcomes - median_outcome, axis=1)
+    losses = norm(outcomes - median_outcome, axis=1, ord=1)
     return losses
 
 

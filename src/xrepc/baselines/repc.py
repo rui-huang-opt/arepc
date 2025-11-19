@@ -27,12 +27,43 @@ def min_f(probs: NDArray[float64], f: int) -> float | None:
 
 
 class RepC:
-    """Reputation-based Consensus (RepC) baseline implementation."""
+    """
+    Reputation-based Consensus (RepC) baseline implementation.
 
-    def __init__(self, neighbors: list[str], alpha: float, eps: float = 0.001) -> None:
+    Parameters
+    ----------
+    neighbors : list[str]
+        List of neighbor identifiers.
+
+    alpha : float
+        Mixing parameter between local state and aggregated prediction.
+
+    eps : float, optional
+        Confidence threshold for reputation normalization. Defaults to 0.001.
+
+    f : int, optional
+        Number of tolerated faulty nodes. Defaults to 1.
+
+    Attributes
+    ----------
+    n_neighbors : int
+        Number of neighbors.
+
+    probs : dict[str, float]
+        Current probabilities assigned to each neighbor.
+
+    Methods
+    -------
+    aggregate(local_state: NDArray[float64], neighbor_states: dict[str, NDArray[float64]]) -> NDArray[float64]
+        Aggregates neighbor states with the local state using the RepC algorithm.
+    """
+
+    def __init__(
+        self, neighbors: list[str], alpha: float, eps: float = 0.001, f: int = 1
+    ) -> None:
         self._neighbors = neighbors
         self._scores = ones(len(neighbors), dtype=float64)
-        self._f = len(neighbors) // 3
+        self._f = f
         self._alpha = alpha
 
         if not (0.0 < eps < 1.0):

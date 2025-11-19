@@ -46,7 +46,7 @@ class XRepC:
         alpha: float,
         eta: float,
         loss_func: LossFunc | None = None,
-        decay: float = 0.3,
+        decay: float = 0.5,
     ) -> None:
         super().__init__()
 
