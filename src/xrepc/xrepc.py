@@ -1,5 +1,5 @@
 from typing import Protocol, Sequence
-from numpy import float64, stack, zeros, array
+from numpy import float64, stack, zeros
 from numpy.typing import NDArray
 from .loss_func import coordinate_wise_median_loss
 from .utils import softmax
