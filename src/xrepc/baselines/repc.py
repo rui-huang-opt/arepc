@@ -110,6 +110,7 @@ class RepC:
         self._reputation_normalization()
 
         probs = self._scores / self._scores.sum()
+
         estimate = probs @ neighbor_states_
 
-        return (1 - self._alpha) * local_state + self._alpha * estimate
+        return local_state * (1 - self._alpha) + estimate * self._alpha

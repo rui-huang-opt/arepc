@@ -3,12 +3,12 @@ from numpy.typing import NDArray
 from numpy.linalg import norm
 
 
-def quasi_geometric_median_loss(outcomes: NDArray[float64]) -> NDArray[float64]:
+def quasi_geometric_median_loss(advices: NDArray[float64]) -> NDArray[float64]:
     """
     Quasi-geometric median loss function implementation.
     The quasi-geometric median loss measures how far each outcome is from the others on average.
     """
-    differences = outcomes[:, None, :] - outcomes[None, :, :]
+    differences = advices[:, None, :] - advices[None, :, :]
     distances = norm(differences, axis=2)
     losses = mean(distances, axis=1)
     return losses
@@ -17,36 +17,36 @@ def quasi_geometric_median_loss(outcomes: NDArray[float64]) -> NDArray[float64]:
 from numpy import median
 
 
-def coordinate_wise_median_loss(outcomes: NDArray[float64]) -> NDArray[float64]:
+def coordinate_wise_median_loss(advices: NDArray[float64]) -> NDArray[float64]:
     """
     Coordinate-wise median loss function implementation.
     This loss measures the Manhattan distance of each outcome from the coordinate-wise median of all outcomes.
     """
-    median_outcome = median(outcomes, axis=0)
-    losses = norm(outcomes - median_outcome, axis=1, ord=1)
+    median_advice = median(advices, axis=0)
+    losses = norm(advices - median_advice, axis=1, ord=1)
     return losses
 
 
 from .utils import geometric_median
 
 
-def geometric_median_loss(outcomes: NDArray[float64]) -> NDArray[float64]:
+def geometric_median_loss(advices: NDArray[float64]) -> NDArray[float64]:
     """
     Geometric median loss function implementation.
     This loss measures the Euclidean distance of each outcome from the geometric median of all outcomes.
     """
-    geo_median = geometric_median(outcomes)
-    losses = norm(outcomes - geo_median, axis=1)
+    geometric_median_advice = geometric_median(advices)
+    losses = norm(advices - geometric_median_advice, axis=1)
     return losses
 
 
-def mean_loss(outcomes: NDArray[float64]) -> NDArray[float64]:
+def mean_loss(advices: NDArray[float64]) -> NDArray[float64]:
     """
     Mean loss function implementation.
     This loss measures the Euclidean distance of each outcome from the mean of all outcomes.
     """
-    mean_outcome = mean(outcomes, axis=0)
-    losses = norm(outcomes - mean_outcome, axis=1)
+    mean_advice = mean(advices, axis=0)
+    losses = norm(advices - mean_advice, axis=1)
     return losses
 
 
@@ -63,13 +63,13 @@ class TrimmedMeanLoss:
     def __init__(self, trim_fraction: float = 0.1) -> None:
         self._trim_fraction = trim_fraction
 
-    def __call__(self, outcomes: NDArray[float64]) -> NDArray[float64]:
-        n = outcomes.shape[0]
+    def __call__(self, advices: NDArray[float64]) -> NDArray[float64]:
+        n = advices.shape[0]
         k = int(n * self._trim_fraction)
 
-        sorted_outcomes = outcomes[argsort(outcomes, axis=0)]
-        trimmed_outcomes = sorted_outcomes[k : n - k]
+        sorted_advices = advices[argsort(advices, axis=0)]
+        trimmed_advices = sorted_advices[k : n - k]
 
-        trimmed_mean_outcome = mean(trimmed_outcomes, axis=0)
-        losses = norm(outcomes - trimmed_mean_outcome, axis=1)
+        trimmed_mean_advice = mean(trimmed_advices, axis=0)
+        losses = norm(advices - trimmed_mean_advice, axis=1)
         return losses

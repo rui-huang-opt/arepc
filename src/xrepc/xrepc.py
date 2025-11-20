@@ -1,5 +1,5 @@
 from typing import Protocol, Sequence
-from numpy import float64, stack, zeros
+from numpy import float64, stack, zeros, array
 from numpy.typing import NDArray
 from .loss_func import coordinate_wise_median_loss
 from .utils import softmax
@@ -12,7 +12,7 @@ class LossFunc(Protocol):
     an array of outcomes and returns an array of losses.
     """
 
-    def __call__(self, outcomes: NDArray[float64]) -> NDArray[float64]: ...
+    def __call__(self, advices: NDArray[float64]) -> NDArray[float64]: ...
 
 
 class XRepC:
@@ -70,7 +70,7 @@ class XRepC:
 
         self._decay = decay
 
-        self._losses_memory = zeros(self.n_neighbors, dtype=float64)
+        self._total_expert_losses = zeros(self.n_neighbors, dtype=float64)
         self._probs = zeros(self.n_neighbors, dtype=float64)
 
     @property
@@ -81,21 +81,20 @@ class XRepC:
     def probs(self) -> dict[str, float]:
         return {j: self._probs[i] for i, j in enumerate(self._neighbors)}
 
-    def _update_probs(self, outcomes: NDArray[float64]) -> None:
-        losses = self._loss_func(outcomes)
-
-        self._losses_memory *= self._decay
-        self._losses_memory += losses
-
-        self._probs = softmax(-self._eta * self._losses_memory)
-
     def aggregate(
         self,
         local_state: NDArray[float64],
         neighbor_states: dict[str, NDArray[float64]],
     ) -> NDArray[float64]:
-        outcomes = stack([neighbor_states[j] for j in self._neighbors])
-        self._update_probs(outcomes)
-        prediction = self._probs @ outcomes
+        advices = stack([neighbor_states[j] for j in self._neighbors])
+
+        expert_losses = self._loss_func(advices)
+
+        self._total_expert_losses *= self._decay
+        self._total_expert_losses += expert_losses
+
+        self._probs = softmax(-self._eta * self._total_expert_losses)
+
+        prediction = self._probs @ advices
 
         return local_state * (1 - self._alpha) + prediction * self._alpha
