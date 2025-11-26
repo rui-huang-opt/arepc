@@ -81,13 +81,13 @@ class RepC:
         probs = self._scores / self._scores.sum()
         return {j: probs[i] for i, j in enumerate(self._neighbors)}
 
-    def _reputation_update(self, neighbor_states: NDArray[float64]) -> None:
+    def _update_reputation(self, neighbor_states: NDArray[float64]) -> None:
         differences = neighbor_states[:, None, :] - neighbor_states[None, :, :]
         distances = norm(differences, axis=2)
         losses = mean(distances, axis=1)
         self._scores = 1.0 - losses
 
-    def _reputation_normalization(self) -> None:
+    def _normalize_reputation(self) -> None:
         min_f_score = min_f(self._scores, f=self._f)
 
         if min_f_score is None:
@@ -106,8 +106,8 @@ class RepC:
     ) -> NDArray[float64]:
         neighbor_states_ = vstack([neighbor_states[j] for j in self._neighbors])
 
-        self._reputation_update(neighbor_states_)
-        self._reputation_normalization()
+        self._update_reputation(neighbor_states_)
+        self._normalize_reputation()
 
         probs = self._scores / self._scores.sum()
 
