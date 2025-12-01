@@ -5,25 +5,25 @@ from numpy.typing import NDArray
 from numpy.linalg import norm
 
 
-def min_f(probs: NDArray[float64], f: int) -> float | None:
+def min_f(values: NDArray[float64], f: int) -> float | None:
     """
-    The min-f score is defined as the f-th smallest unique score in the array,
-    but it is not allowed to be the largest score.
-    If there is only one unique score, return None to indicate that all scores are equal.
+    The min-f value is defined as the f-th smallest unique value in the array,
+    but it is not allowed to be the largest value.
+    If there is only one unique value, return None to indicate that all values are equal.
     """
 
-    if probs.size == 0:
+    if values.size == 0:
         raise ValueError("Probabilities array is empty.")
 
-    deduped_probs = unique(probs)
+    deduped_values = unique(values)
 
-    if len(deduped_probs) == 1:
+    if len(deduped_values) == 1:
         return None
 
-    if f >= len(deduped_probs):
-        return deduped_probs[-2]
+    if f >= len(deduped_values):
+        return deduped_values[-2]
     else:
-        return deduped_probs[f - 1]
+        return deduped_values[f - 1]
 
 
 class RepC:
@@ -62,7 +62,7 @@ class RepC:
         self, neighbors: list[str], alpha: float, eps: float = 0.001, f: int = 1
     ) -> None:
         self._neighbors = neighbors
-        self._scores = ones(len(neighbors), dtype=float64)
+        self._reputations = ones(len(neighbors), dtype=float64)
         self._f = f
         self._alpha = alpha
 
@@ -78,24 +78,25 @@ class RepC:
 
     @property
     def probs(self) -> dict[str, float]:
-        probs = self._scores / self._scores.sum()
+        probs = self._reputations / self._reputations.sum()
         return {j: probs[i] for i, j in enumerate(self._neighbors)}
 
     def _update_reputation(self, neighbor_states: NDArray[float64]) -> None:
         differences = neighbor_states[:, None, :] - neighbor_states[None, :, :]
         distances = norm(differences, axis=2)
         losses = mean(distances, axis=1)
-        self._scores = 1.0 - losses
+        self._reputations = 1.0 - losses
 
     def _normalize_reputation(self) -> None:
-        min_f_score = min_f(self._scores, f=self._f)
+        min_f_reputation = min_f(self._reputations, f=self._f)
 
-        if min_f_score is None:
-            self._scores = ones(len(self._neighbors))
+        if min_f_reputation is None:
+            self._reputations = ones(len(self._neighbors))
         else:
-            max_score = self._scores.max()
-            new_scores = (self._scores - min_f_score) / (max_score - min_f_score)
-            self._scores = where(new_scores > 0, new_scores, self._eps_t)
+            max_reputation = self._reputations.max()
+            reputation_range = max_reputation - min_f_reputation
+            new_reputations = (self._reputations - min_f_reputation) / reputation_range
+            self._reputations = where(new_reputations > 0, new_reputations, self._eps_t)
 
         self._eps_t *= self._eps
 
@@ -109,7 +110,7 @@ class RepC:
         self._update_reputation(neighbor_states_)
         self._normalize_reputation()
 
-        probs = self._scores / self._scores.sum()
+        probs = self._reputations / self._reputations.sum()
 
         estimate = probs @ neighbor_states_
 
