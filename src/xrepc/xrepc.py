@@ -9,7 +9,9 @@ class LossFunc(Protocol):
     """
     Protocol for loss function implementations.
     Any loss function class should implement the __call__ method that takes
-    an array of outcomes and returns an array of losses.
+    an array of advices and returns an array of losses.
+    The method does not require an explicit outcome input, as the outcome is
+    derived from the advices within the loss function itself.
     """
 
     def __call__(self, advices: NDArray[float64]) -> NDArray[float64]: ...
@@ -31,7 +33,7 @@ class XRepC:
         Learning rate for updating probabilities.
 
     loss_func : LossFunc, optional
-        Loss function to evaluate neighbor outcomes. Defaults to coordinate-wise median loss.
+        Loss function to evaluate neighbor advices. Defaults to coordinate-wise median loss.
 
     decay : float, optional
         Decay factor for past losses, must be in [0, 1]. Defaults to 0.3.
