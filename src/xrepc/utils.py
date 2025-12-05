@@ -10,13 +10,14 @@ def softmax(logits: NDArray[float64]) -> NDArray[float64]:
     This formulation improves numerical stability by subtracting the maximum logit.
     """
 
-    max_logit = logits.max()
+    max_logit: float = logits.max()
     logits_shifted = logits - max_logit  # For numerical stability
-    weights = exp(logits_shifted)
+    weights: NDArray[float64] = exp(logits_shifted)
 
     return weights / weights.sum()
 
 
+from numpy import bool_
 from numpy.linalg import norm
 
 
@@ -40,17 +41,17 @@ def geometric_median(
     NDArray[float64]: The geometric median of the points.
     """
 
-    guess = points.mean(axis=0)
+    guess: NDArray[float64] = points.mean(axis=0)
 
     for _ in range(max_iter):
-        distances = norm(points - guess, axis=1)
-        nonzero_mask = distances != 0.0
+        distances: NDArray[float64] = norm(points - guess, axis=1)
+        nonzero_mask: NDArray[bool_] = distances != 0.0
 
         if not nonzero_mask.any():
             return guess
 
         inv_distances = 1 / distances[nonzero_mask]
-        weights = inv_distances / inv_distances.sum()
+        weights: NDArray[float64] = inv_distances / inv_distances.sum()
         new_guess = weights @ points[nonzero_mask]
         if ((new_guess - guess) ** 2).sum() < tol**2:
             return new_guess
