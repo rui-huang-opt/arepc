@@ -11,7 +11,7 @@ description = "A Python package for Byzantine-resilient distributed consensus us
 authors = [{ name = "Rui Huang", email = "ruihuang0421@gmail.com" }]
 
 dependencies = [
-    "topolink @ git+https://github.com/rui-huang-opt/topolink.git@0.1.8",
+    "topolink @ git+https://github.com/rui-huang-opt/topolink.git@0.1.9",
 ]
 
 [project.optional-dependencies]
