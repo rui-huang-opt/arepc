@@ -1,8 +1,8 @@
-from numpy import float64, exp
+import numpy as np
 from numpy.typing import NDArray
 
 
-def softmax(logits: NDArray[float64]) -> NDArray[float64]:
+def softmax(logits: NDArray[np.float64]) -> NDArray[np.float64]:
     """
     Compute softmax probabilities from logits.
     The formula used is:
@@ -10,20 +10,42 @@ def softmax(logits: NDArray[float64]) -> NDArray[float64]:
     This formulation improves numerical stability by subtracting the maximum logit.
     """
 
-    max_logit: float = logits.max()
-    logits_shifted = logits - max_logit  # For numerical stability
-    weights: NDArray[float64] = exp(logits_shifted)
+    # For numerical stability
+    logits_shifted: NDArray[np.float64] = logits - logits.max()
+    weights: NDArray[np.float64] = np.exp(logits_shifted)
 
     return weights / weights.sum()
 
 
-from numpy import bool_
+def sparsemax(logits: NDArray[np.float64]) -> NDArray[np.float64]:
+    """
+    Compute sparsemax probabilities from logits.
+    The formula used is:
+        sparsemax(x) = max(0, x - tau)
+    where tau is chosen such that the output sums to 1.
+    """
+
+    logits_shifted: NDArray[np.float64] = logits - logits.max()
+    # Sort in descending order
+    logits_sorted = np.sort(logits_shifted)[::-1]
+    cumulative_sums: NDArray[np.float64] = logits_sorted.cumsum()
+    k_array = (1 + logits_sorted * range(1, len(logits) + 1)) > cumulative_sums
+    # Number of active entries
+    k = np.count_nonzero(k_array)
+
+    tau: float = (cumulative_sums[k - 1] - 1) / k
+    probs = logits_shifted - tau
+    probs[probs < 0] = 0.0
+
+    return probs
+
+
 from numpy.linalg import norm
 
 
 def geometric_median(
-    points: NDArray[float64], tol: float = 1e-6, max_iter: int = 1000
-) -> NDArray[float64]:
+    points: NDArray[np.float64], tol: float = 1e-6, max_iter: int = 1000
+) -> NDArray[np.float64]:
     """
     Compute the geometric median of a set of points using Weiszfeld's algorithm.
 
@@ -41,17 +63,17 @@ def geometric_median(
     NDArray[float64]: The geometric median of the points.
     """
 
-    guess: NDArray[float64] = points.mean(axis=0)
+    guess: NDArray[np.float64] = points.mean(axis=0)
 
     for _ in range(max_iter):
-        distances: NDArray[float64] = norm(points - guess, axis=1)
-        nonzero_mask: NDArray[bool_] = distances != 0.0
+        distances: NDArray[np.float64] = norm(points - guess, axis=1)
+        nonzero_mask: NDArray[np.bool_] = distances != 0.0
 
         if not nonzero_mask.any():
             return guess
 
         inv_distances = 1 / distances[nonzero_mask]
-        weights: NDArray[float64] = inv_distances / inv_distances.sum()
+        weights: NDArray[np.float64] = inv_distances / inv_distances.sum()
         new_guess = weights @ points[nonzero_mask]
         if ((new_guess - guess) ** 2).sum() < tol**2:
             return new_guess

@@ -1,8 +1,8 @@
 from typing import Protocol, Sequence
 from numpy import float64, stack, zeros
 from numpy.typing import NDArray
-from .loss_func import coordinate_wise_median_loss
-from .utils import softmax
+from .loss_func import cwm_loss
+from .utils import softmax, sparsemax
 
 
 class LossFunc(Protocol):
@@ -65,7 +65,7 @@ class XRepC:
         self._neighbors = neighbors
         self._alpha = alpha
         self._eta = eta
-        self._loss_func = loss_func or coordinate_wise_median_loss
+        self._loss_func = cwm_loss if loss_func is None else loss_func
 
         if not (0.0 <= decay <= 1.0):
             raise ValueError("decay factor must be in [0, 1].")
@@ -95,7 +95,7 @@ class XRepC:
         self._total_expert_losses *= self._decay
         self._total_expert_losses += expert_losses
 
-        self._probs = softmax(-self._eta * self._total_expert_losses)
+        self._probs = sparsemax(-self._eta * self._total_expert_losses)
 
         prediction = self._probs @ advices
 

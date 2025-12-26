@@ -62,7 +62,7 @@ class RepC:
         self, neighbors: list[str], alpha: float, eps: float = 0.001, f: int = 1
     ) -> None:
         self._neighbors = neighbors
-        self._reputations = ones(len(neighbors), dtype=float64)
+        self._reputations = ones(len(neighbors))
         self._f = f
         self._alpha = alpha
 
@@ -91,7 +91,7 @@ class RepC:
         min_f_reputation = min_f(self._reputations, f=self._f)
 
         if min_f_reputation is None:
-            self._reputations = ones(len(self._neighbors))
+            self._reputations.fill(1.0)
         else:
             max_reputation = self._reputations.max()
             reputation_range = max_reputation - min_f_reputation
