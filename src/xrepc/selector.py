@@ -27,8 +27,8 @@ def sparsemax(logits: NDArray[np.float64]) -> NDArray[np.float64]:
     logits_shifted: NDArray[np.float64] = logits - logits.max()
     logits_sorted = np.sort(logits_shifted)[::-1]  # Sort in descending order
     cum_sums: NDArray[np.float64] = logits_sorted.cumsum()
-    mask = (1 + logits_sorted * np.arange(1, len(logits) + 1)) > cum_sums
-    k = np.count_nonzero(mask)
+    condition = (1 + logits_sorted * np.arange(1, len(logits) + 1)) > cum_sums
+    k = np.count_nonzero(condition)
 
     tau: float = (cum_sums[k - 1] - 1) / k
     probs = logits_shifted - tau
@@ -54,14 +54,10 @@ def entmax15(logits: NDArray[np.float64]) -> NDArray[np.float64]:
     s = cum_squares - rho * m**2
     delta = np.maximum((1 - s) / rho, 0)  # For numerical stability
     tau_candidates = m - np.sqrt(delta)
+    condition = logits_sorted > tau_candidates
+    k = np.count_nonzero(condition)
 
-    for k in range(len(logits) - 1):
-        if logits_sorted[k + 1] <= tau_candidates[k] <= logits_sorted[k]:
-            tau = tau_candidates[k]
-            break
-    else:
-        tau = tau_candidates[-1]
-
+    tau = tau_candidates[k - 1]
     probs = np.maximum(0, logits_shifted - tau) ** 2
 
     return probs
