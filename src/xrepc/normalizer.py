@@ -36,8 +36,7 @@ def sparsemax(logits: NDArray[np.float64]) -> NDArray[np.float64]:
     k = np.count_nonzero(condition)
 
     tau: float = (cum_sums[k - 1] - 1) / k
-    probs = logits_shifted - tau
-    probs[probs < 0] = 0.0
+    probs = np.maximum(logits_shifted - tau, 0)
 
     return probs
 
@@ -69,7 +68,7 @@ def entmax15(logits: NDArray[np.float64]) -> NDArray[np.float64]:
     k = np.count_nonzero(condition)
 
     tau = tau_candidates[k - 1]
-    probs = np.maximum(0, logits_shifted - tau) ** 2
+    probs = np.maximum(logits_shifted - tau, 0) ** 2
 
     return probs
 

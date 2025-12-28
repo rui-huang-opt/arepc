@@ -28,6 +28,11 @@ class RepC:
     """
     Reputation-based Consensus (RepC) baseline implementation.
 
+    The paper introducing the RepC algorithm is:
+    Ramos, G., Silvestre, D., & Silvestre, C. (2023).
+    "A Discrete-Time Reputation-Based Resilient Consensus Algorithm for Synchronous or Asynchronous Communications".
+    IEEE Transactions on Automatic Control, 69(1), 543-550.
+
     Parameters
     ----------
     neighbors : list[str]
@@ -60,7 +65,7 @@ class RepC:
         self, neighbors: list[str], alpha: float, eps: float = 0.001, f: int = 1
     ) -> None:
         self._neighbors = neighbors
-        self._reputations: NDArray[np.float64] = np.ones(len(neighbors))
+        self._probs: NDArray[np.float64] = np.zeros(len(neighbors))
         self._f = f
         self._alpha = alpha
 
@@ -76,28 +81,51 @@ class RepC:
 
     @property
     def probs(self) -> dict[str, float]:
-        probs = self._reputations / self._reputations.sum()
-        return {j: probs[i] for i, j in enumerate(self._neighbors)}
+        return {j: self._probs[i] for i, j in enumerate(self._neighbors)}
 
-    def _update_reputation(self, neighbor_states: NDArray[np.float64]) -> None:
+    def _compute_reputation(
+        self, neighbor_states: NDArray[np.float64]
+    ) -> NDArray[np.float64]:
+        """
+        Compute reputation scores for each neighbor from their state vectors.
+
+        For each neighbor j with state x_j, we first compute a per-neighbor
+        loss as the mean pairwise L2 distance to all neighbors:
+
+            loss_j = (1 / |N_i|) * sum_{k in N_i} ||x_j - x_k||_2
+
+        The reputation is then defined as:
+
+            r_j = 1 - loss_j
+
+        Note: the aggregation used to form `loss_j` mirrors the one used in the quasi-geometric-median-style loss in `xrepc.loss_func.py`.
+        We re-implement it locally here (instead of importing/calling the shared function) to keep this benchmark code self-contained.
+        """
+
         differences = neighbor_states[:, None, :] - neighbor_states[None, :, :]
         distances = norm(differences, axis=2)
         losses = np.mean(distances, axis=1)
-        self._reputations = 1.0 - losses
+        return 1.0 - losses
 
-    def _normalize_reputation(self) -> None:
-        min_f_reputation = min_f(self._reputations, f=self._f)
+    def _normalizer(self, reputations: NDArray[np.float64]) -> NDArray[np.float64]:
+        """
+        Normalize reputations to probabilities using the RepC normalization scheme.
+        """
+
+        min_f_reputation = min_f(reputations, f=self._f)
 
         if min_f_reputation is None:
-            self._reputations.fill(1.0)
+            reputations.fill(1.0)
         else:
-            max_reputation: float = self._reputations.max()
+            max_reputation: float = reputations.max()
             reputation_range = max_reputation - min_f_reputation
-            self._reputations -= min_f_reputation
-            self._reputations /= reputation_range
-            self._reputations[self._reputations <= 0] = self._eps_t
+            reputations -= min_f_reputation
+            reputations /= reputation_range
+            reputations[reputations <= 0] = self._eps_t
 
         self._eps_t *= self._eps
+
+        return reputations / reputations.sum()
 
     def aggregate(
         self,
@@ -106,11 +134,9 @@ class RepC:
     ) -> NDArray[np.float64]:
         neighbor_states_ = np.vstack([neighbor_states[j] for j in self._neighbors])
 
-        self._update_reputation(neighbor_states_)
-        self._normalize_reputation()
+        reputations = self._compute_reputation(neighbor_states_)
+        self._probs = self._normalizer(reputations)
 
-        probs = self._reputations / self._reputations.sum()
-
-        estimate = probs @ neighbor_states_
+        estimate = self._probs @ neighbor_states_
 
         return local_state * (1 - self._alpha) + estimate * self._alpha
