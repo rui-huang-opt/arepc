@@ -22,6 +22,11 @@ def sparsemax(logits: NDArray[np.float64]) -> NDArray[np.float64]:
     The formula used is:
         sparsemax(x) = max(0, x - tau)
     where tau is chosen such that the output sums to 1.
+
+    The paper introducing sparsemax is:
+    Martins, A. F., & Astudillo, R. F. (2016).
+    "From Softmax to Sparsemax: A Sparse Model of Attention and Multi-Label Classification".
+    In Proceedings of the 33rd International Conference on Machine Learning (ICML).
     """
 
     logits_shifted: NDArray[np.float64] = logits - logits.max()
@@ -41,9 +46,15 @@ def entmax15(logits: NDArray[np.float64]) -> NDArray[np.float64]:
     """
     Compute entmax with alpha=1.5 probabilities from logits.
     The formula used is:
-        entmax15(x) = max(0, (x - tau) / 2)^(2)
+        1.5-entmax(x) = max(0, (x / 2) - tau)^(2)
     where tau is chosen such that the output sums to 1.
+
+    The paper introducing entmax is:
+    Peters, M. E., Niculae, V., & Martins, A. F. (2019).
+    "Sparse Sequence-to-Sequence Models".
+    In Proceedings of the 57th Annual Meeting of the Association for Computational Linguistics.
     """
+
     logits_shifted: NDArray[np.float64] = (logits - logits.max()) / 2
     logits_sorted = np.sort(logits_shifted)[::-1]
     cum_sums: NDArray[np.float64] = logits_sorted.cumsum()
@@ -63,8 +74,8 @@ def entmax15(logits: NDArray[np.float64]) -> NDArray[np.float64]:
     return probs
 
 
-SELECTOR_MAP = {
+NORMALIZER_MAP = {
     "softmax": softmax,
     "sparsemax": sparsemax,
-    "entmax15": entmax15,
+    "1.5-entmax": entmax15,
 }

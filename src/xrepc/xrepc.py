@@ -4,7 +4,7 @@ import numpy as np
 from numpy.typing import NDArray
 
 from .loss_func import LOSS_FUNC_MAP
-from .selector import SELECTOR_MAP
+from .normalizer import NORMALIZER_MAP
 
 
 class XRepC:
@@ -34,9 +34,9 @@ class XRepC:
     decay : float, optional
         Decay factor for past losses, must be in [0, 1]. Defaults to 0.3.
 
-    selector : str, optional
-        Selector function to convert losses to probabilities.
-        Options are "softmax", "sparsemax", and "entmax15".
+    normalizer : str, optional
+        Normalizer function to convert losses to probabilities.
+        Options are "softmax", "sparsemax", and "1.5-entmax".
         Defaults to "sparsemax".
 
     Attributes
@@ -60,7 +60,7 @@ class XRepC:
         eta: float,
         loss_func: str = "cwm",
         decay: float = 0.8,
-        selector: str = "sparsemax",
+        normalizer: str = "sparsemax",
     ) -> None:
         super().__init__()
 
@@ -73,7 +73,7 @@ class XRepC:
             raise ValueError("decay factor must be in [0, 1].")
 
         self._decay = decay
-        self._selector = SELECTOR_MAP[selector]
+        self._normalizer = NORMALIZER_MAP[normalizer]
 
         self._total_expert_losses = np.zeros(self.n_neighbors, dtype=np.float64)
         self._probs = np.zeros(self.n_neighbors, dtype=np.float64)
@@ -98,7 +98,7 @@ class XRepC:
         self._total_expert_losses *= self._decay
         self._total_expert_losses += expert_losses
 
-        self._probs = self._selector(-self._eta * self._total_expert_losses)
+        self._probs = self._normalizer(-self._eta * self._total_expert_losses)
 
         prediction = self._probs @ advices
 
