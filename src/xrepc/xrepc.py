@@ -60,7 +60,7 @@ class XRepC:
         eta: float,
         loss_func: str = "cwm",
         decay: float = 0.8,
-        normalizer: str = "sparsemax",
+        normalizer: str = "softmax",
     ) -> None:
         super().__init__()
 
