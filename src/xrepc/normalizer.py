@@ -37,9 +37,8 @@ def sparsemax(logits: NDArray[np.float64]) -> NDArray[np.float64]:
     k = np.where(condition)[0][-1] + 1  # +1 for 1-based index
 
     tau: float = (cum_sums[k - 1] - 1) / k
-    probs = np.maximum(logits_shifted - tau, 0)
 
-    return probs
+    return np.maximum(logits_shifted - tau, 0)
 
 
 def entmax15(logits: NDArray[np.float64]) -> NDArray[np.float64]:
@@ -55,8 +54,8 @@ def entmax15(logits: NDArray[np.float64]) -> NDArray[np.float64]:
     In Proceedings of the 57th Annual Meeting of the Association for Computational Linguistics.
     """
 
-    logits_shifted: NDArray[np.float64] = (logits - logits.max()) / 2
-    logits_sorted = np.sort(logits_shifted)[::-1]
+    logits_shifted_scaled: NDArray[np.float64] = (logits - logits.max()) / 2
+    logits_sorted = np.sort(logits_shifted_scaled)[::-1]
     cum_sums: NDArray[np.float64] = logits_sorted.cumsum()
     cum_squares: NDArray[np.float64] = (logits_sorted**2).cumsum()
 
@@ -69,7 +68,7 @@ def entmax15(logits: NDArray[np.float64]) -> NDArray[np.float64]:
     #     here we instead mask them out using a valid mask
     # (2) the paper introduces an extra logit z_{K+1} = -inf to handle the last case;
     #     we implement this implicitly by marking the final condition as always true
-    valid = delta > 0
+    valid = delta >= 0
     tau_candidates = m - np.sqrt(np.maximum(delta, 0))
     condition = (
         (np.r_[logits_sorted[1:] <= tau_candidates[:-1], True])
@@ -79,13 +78,8 @@ def entmax15(logits: NDArray[np.float64]) -> NDArray[np.float64]:
     k = np.where(condition)[0][0] + 1  # +1 for 1-based index
 
     tau = tau_candidates[k - 1]
-    probs = np.maximum(logits_shifted - tau, 0) ** 2
 
-    return probs
+    return np.maximum(logits_shifted_scaled - tau, 0) ** 2
 
 
-NORMALIZER_MAP = {
-    "softmax": softmax,
-    "sparsemax": sparsemax,
-    "1.5-entmax": entmax15,
-}
+NORMALIZER_MAP = {"softmax": softmax, "sparsemax": sparsemax, "1.5-entmax": entmax15}

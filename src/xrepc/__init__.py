@@ -1,3 +1,3 @@
-from .xrepc import XRepC
+from .xrepc import XRepC, LossFunc
 
-__all__ = ["XRepC"]
+__all__ = ["XRepC", "LossFunc"]

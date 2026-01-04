@@ -35,6 +35,7 @@ def geometric_median(
         inv_distances = 1 / distances[nonzero_mask]
         weights: NDArray[np.float64] = inv_distances / inv_distances.sum()
         new_guess = weights @ points[nonzero_mask]
+
         if ((new_guess - guess) ** 2).sum() < tol**2:
             return new_guess
 
