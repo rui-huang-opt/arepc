@@ -1,6 +1,10 @@
+import logging
+
 import numpy as np
 from numpy.typing import NDArray
 from numpy.linalg import norm
+
+logger = logging.getLogger(__name__)
 
 
 def geometric_median(
@@ -14,10 +18,10 @@ def geometric_median(
         An array of shape (n_points, n_dimensions) representing the points.
 
     tol (float):
-        The tolerance for convergence. Default is 1e-5.
+        The tolerance for convergence. Default is 1e-6.
 
     max_iter (int):
-        The maximum number of iterations. Default is 500.
+        The maximum number of iterations. Default is 1000.
 
     Returns:
     NDArray[float64]: The geometric median of the points.
@@ -40,5 +44,10 @@ def geometric_median(
             return new_guess
 
         guess = new_guess
+
+    logger.warning(
+        f"Geometric median did not converge within {max_iter} iterations."
+        "The result may be inaccurate. Try increasing `max_iter` or `tol`."
+    )
 
     return guess

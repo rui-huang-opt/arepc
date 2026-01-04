@@ -1,3 +1,5 @@
+from typing import Protocol
+
 import numpy as np
 from numpy.typing import NDArray
 from numpy.linalg import norm
@@ -5,15 +7,22 @@ from numpy.linalg import norm
 from .utils import geometric_median
 
 
-def geometric_median_loss(neighbor_states: NDArray[np.float64]) -> NDArray[np.float64]:
+class LossFunc(Protocol):
     """
-    Geometric median loss function implementation.
-    This loss measures the Euclidean distance of each outcome from the geometric median of all outcomes.
-    The drawback of this loss is its computational complexity, as finding the geometric median can be more intensive than other statistics.
+    Protocol for loss function implementations.
+
+    Parameters
+    ----------
+    neighbor_states : NDArray[np.float64]
+        An array of shape (n_neighbors, n_dimensions) representing the states of neighboring agents.
+
+    Returns
+    -------
+    losses : NDArray[np.float64]
+        An array of shape (n_neighbors,) representing the loss for each neighbor.
     """
-    outcome = geometric_median(neighbor_states)
-    losses = norm(neighbor_states - outcome, axis=1)
-    return losses
+
+    def __call__(self, neighbor_states: NDArray[np.float64]) -> NDArray[np.float64]: ...
 
 
 def quasi_geometric_median_loss(
@@ -42,6 +51,23 @@ def coordinate_wise_median_loss(
     return losses
 
 
+class GeometricMedianLoss:
+    """
+    Geometric median loss function implementation.
+    This loss measures the Euclidean distance of each outcome from the geometric median of all outcomes.
+    The drawback of this loss is its computational complexity, as finding the geometric median can be more intensive than other statistics.
+    """
+
+    def __init__(self, tol: float = 1e-6, max_iter: int = 1000) -> None:
+        self.tol = tol
+        self.max_iter = max_iter
+
+    def __call__(self, neighbor_states: NDArray[np.float64]) -> NDArray[np.float64]:
+        outcome = geometric_median(neighbor_states, self.tol, self.max_iter)
+        losses = norm(neighbor_states - outcome, axis=1)
+        return losses
+
+
 def mean_loss(neighbor_states: NDArray[np.float64]) -> NDArray[np.float64]:
     """
     Mean loss function implementation.
@@ -53,45 +79,29 @@ def mean_loss(neighbor_states: NDArray[np.float64]) -> NDArray[np.float64]:
     return losses
 
 
-LOSS_FUNC_MAP = {
-    "gmed": geometric_median_loss,
-    "qmed": quasi_geometric_median_loss,
-    "cmed": coordinate_wise_median_loss,
-    "mean": mean_loss,
-}
-
-from typing import Callable
-
-
-def trimmed_mean_loss(f: int) -> Callable[[NDArray[np.float64]], NDArray[np.float64]]:
+class TrimmedMeanLoss:
     """
-    Create a trimmed mean loss function.
-
+    Trimmed mean loss function implementation.
     This loss measures the Euclidean distance of each outcome from the trimmed mean of all outcomes.
-    The trimmed mean is computed by removing the highest and lowest `f` values for each coordinate.
-
-    The drawback of this loss is that it requires the parameter `f`, which represents the number of tolerated faulty nodes.
-    However, this parameter is unknown in practice.
-    Thus, this loss function is not directly included in the LOSS_FUNC_MAP.
-
-    Parameters
-    ----------
-    f : int
-        The number of highest and lowest values to trim for each coordinate.
-
-    Returns
-    -------
-    loss_func : function
-        A function that computes the trimmed mean loss.
+    The trimmed mean is computed by removing the highest and lowest 'f' values for each coordinate before calculating the mean.
     """
 
-    def loss_func(neighbor_states: NDArray[np.float64]) -> NDArray[np.float64]:
+    def __init__(self, f: int) -> None:
+        self.f = f
+
+    def __call__(self, neighbor_states: NDArray[np.float64]) -> NDArray[np.float64]:
         n = neighbor_states.shape[0]
-        sorted_neighbor_states = neighbor_states[np.argsort(neighbor_states, axis=0)]
-        trimmed_neighbor_states = sorted_neighbor_states[f : n - f]
+        sorted_neighbor_states = np.sort(neighbor_states, axis=0)
+        trimmed_neighbor_states = sorted_neighbor_states[self.f : n - self.f]
 
         outcome = np.mean(trimmed_neighbor_states, axis=0)
         losses = norm(neighbor_states - outcome, axis=1)
         return losses
 
-    return loss_func
+
+LOSS_FUNC_MAP: dict[str, LossFunc] = {
+    "qmed": quasi_geometric_median_loss,
+    "cmed": coordinate_wise_median_loss,
+    "gmed": GeometricMedianLoss(),
+    "mean": mean_loss,
+}

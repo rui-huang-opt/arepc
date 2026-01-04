@@ -1,15 +1,11 @@
-from typing import Sequence, Protocol
+from typing import Sequence, Literal
 
 import numpy as np
 from numpy.typing import NDArray
 
-from .loss_func import LOSS_FUNC_MAP
-from .cumulator import CUMULATOR_MAP
+from .loss_func import LossFunc, LOSS_FUNC_MAP
+from .accumulator import make_accumulator
 from .normalizer import NORMALIZER_MAP
-
-
-class LossFunc(Protocol):
-    def __call__(self, neighbor_states: NDArray[np.float64]) -> NDArray[np.float64]: ...
 
 
 class XRepC:
@@ -28,48 +24,79 @@ class XRepC:
     eta : float
         Temperature parameter controlling sensitivity to losses.
 
-    loss_func : str | LossFunc, optional
+    loss_func : LossFunc | Literal["qmed", "cmed", "mean"], optional
         Loss function to evaluate neighbor predictions.
 
-        If a string is provided, it should be one of the predefined loss functions.
+        If a string is provided, it selects one of the predefined loss functions.
         Options are
-        "gmed" (geometric median loss),
         "qmed" (quasi-geometric median loss),
         "cmed" (coordinate-wise median loss),
+        "gmed" (geometric median loss),
         and "mean" (mean loss).
-        Defaults to "cmed".
+        Defaults to "qmed".
 
-        Else, a custom loss function adhering to the LossFunc protocol:
+        There are also two additional loss functions that require configuration:
+        - GeometricMedianLoss:
+          This loss function computes the geometric median of neighbor states iteratively using Weiszfeld's algorithm.
+          Thus, it has two parameters: `tol` (tolerance for convergence) and `max_iter` (maximum number of iterations).
+          The 'gmed' option uses a default instance of this class with `tol=1e-6` and `max_iter=1000`.
+          You can customize these parameters by instantiating the class separately and passing the instance as `loss_func`.
+        - TrimmedMeanLoss:
+          This loss function requires specifying the trimming parameter `f`, which is usually unknown in practice.
+          So this loss function is not recommended for general use.
+          However, if you want to experiment with it, you can instantiate the class separately and pass the instance as `loss_func`.
+        To use these, instantiate them separately and pass the instance as `loss_func`.
+        e.g.,
+        ```python
+        from xrepc import XRepC, GeometricMedianLoss, TrimmedMeanLoss
 
-            def custom_loss_func(neighbor_states: NDArray[np.float64]) -> NDArray[np.float64]:
+        loss_func = GeometricMedianLoss(tol=1e-5, max_iter=2000)
+        # or
+        loss_func = TrimmedMeanLoss(f=2)
+
+        xrepc = XRepC(neighbors, 0.5, 1.0, loss_func=loss_func)
+        ```
+
+        Besides, you can also define your own custom loss function by implementing a callable that takes
+        a 2D numpy array of stacked neighbor states and returns a 1D numpy array of corresponding losses.
+        e.g.,
+        ```pythonpython
+        from xrepc import XRepC
+        from numpy.typing import NDArray
+        import numpy as np
+
+        class CustomLoss:
+            def __init__(self, ...) -> None:
+                # Initialize any parameters needed for your custom loss
                 ...
 
-        can be provided.
-        This custom loss function should take in a stack of neighbor states and return a 1D array of losses.
+            def __call__(self, neighbor_states: NDArray[np.float64]) -> NDArray[np.float64]:
+                # Implement your custom loss computation here
+                losses = ...
+                return losses
 
-        Note:
-        In 'xrepc.loss_func.py', there is also a 'trimmed_mean_loss' function generator that can be used to create a trimmed mean loss function.
-        This loss function is not directly included in the predefined loss functions as it requires the parameter `f` (number of tolerated faulty nodes), which is unknown in practice.
+        xrepc = XRepC(neighbors, 0.5, 1.0, loss_func=CustomLoss(...))
+        # or
+        def custom_loss(neighbor_states: NDArray[np.float64]) -> NDArray[np.float64]:
+            # Implement your custom loss computation here
+            losses = ...
+            return losses
 
-        To test it, you can create a loss function as follows:
+        xrepc = XRepC(neighbors, 0.5, 1.0, loss_func=custom_loss)
+        ```
 
-            from xrepc.loss_func import trimmed_mean_loss
-            custom_loss = trimmed_mean_loss(f=1)  # Example with f=1
-
-        and then pass `custom_loss` to the `loss_func` parameter.
-
-    cumulator : str, optional
-        Cumulator type for loss aggregation.
+    accumulation : str, optional
+        Accumulation type for loss aggregation.
         Options are "exp-decay" (exponentially decayed) and "moving-horizon".
         Defaults to "exp-decay".
 
-    normalizer : str, optional
-        Normalizer function to convert losses to probabilities.
+    normalization : str, optional
+        Normalization function to convert losses to probabilities.
         Options are "softmax", "sparsemax", and "1.5-entmax".
         Defaults to "softmax".
 
     horizon : float, optional
-        Horizon parameter for the cumulator.
+        Horizon parameter for the accumulation method.
 
         For "moving_horizon", it defines the window size by 'horizon = int(horizon)'.
 
@@ -93,24 +120,22 @@ class XRepC:
         neighbors: Sequence[str],
         alpha: float,
         eta: float,
-        loss_func: str | LossFunc = "cmed",
-        cumulator: str = "exp-decay",
-        normalizer: str = "softmax",
+        loss_func: LossFunc | Literal["qmed", "cmed", "gmed", "mean"] = "qmed",
+        accumulation: Literal["exp-decay", "moving-horizon"] = "exp-decay",
+        normalization: Literal["softmax", "sparsemax", "1.5-entmax"] = "softmax",
         horizon: float = 5.0,
     ) -> None:
-        super().__init__()
-
         self._neighbors = neighbors
-        self._alpha = alpha
-        self._eta = eta
+        self.alpha = alpha
+        self.eta = eta
 
         if isinstance(loss_func, str):
             self._loss_func = LOSS_FUNC_MAP[loss_func]
         else:
             self._loss_func = loss_func
 
-        self._cumulator = CUMULATOR_MAP[cumulator](horizon, len(neighbors))
-        self._normalizer = NORMALIZER_MAP[normalizer]
+        self._accumulator = make_accumulator(accumulation, horizon, len(neighbors))
+        self._normalizer = NORMALIZER_MAP[normalization]
 
         self._probs = np.zeros(len(neighbors), dtype=np.float64)
 
@@ -126,9 +151,9 @@ class XRepC:
         n_states = np.stack([neighbor_states[j] for j in self._neighbors])
 
         current_losses = self._loss_func(n_states)
-        cumulated_losses = self._cumulator(current_losses)
-        self._probs = self._normalizer(-self._eta * cumulated_losses)
+        cumulative_losses = self._accumulator(current_losses)
+        self._probs = self._normalizer(-self.eta * cumulative_losses)
 
         honest_avarage = self._probs @ n_states
 
-        return local_state * (1 - self._alpha) + honest_avarage * self._alpha
+        return local_state * (1 - self.alpha) + honest_avarage * self.alpha

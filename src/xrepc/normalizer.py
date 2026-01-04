@@ -75,11 +75,15 @@ def entmax15(logits: NDArray[np.float64]) -> NDArray[np.float64]:
         & (logits_sorted >= tau_candidates)
         & valid
     )
-    k = np.where(condition)[0][0] + 1  # +1 for 1-based index
+    k = np.where(condition)[0][0] + 1
 
     tau = tau_candidates[k - 1]
 
     return np.maximum(logits_shifted_scaled - tau, 0) ** 2
 
 
-NORMALIZER_MAP = {"softmax": softmax, "sparsemax": sparsemax, "1.5-entmax": entmax15}
+NORMALIZER_MAP = {
+    "softmax": softmax,
+    "sparsemax": sparsemax,
+    "1.5-entmax": entmax15,
+}

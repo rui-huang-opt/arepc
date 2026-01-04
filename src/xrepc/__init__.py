@@ -1,3 +1,4 @@
-from .xrepc import XRepC, LossFunc
+from .xrepc import XRepC
+from .loss_func import GeometricMedianLoss, TrimmedMeanLoss
 
-__all__ = ["XRepC", "LossFunc"]
+__all__ = ["XRepC", "GeometricMedianLoss", "TrimmedMeanLoss"]
