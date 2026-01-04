@@ -3,6 +3,7 @@ from typing import Protocol
 import numpy as np
 from numpy.typing import NDArray
 from numpy.linalg import norm
+from scipy.spatial.distance import cdist
 
 from .utils import geometric_median
 
@@ -33,8 +34,7 @@ def quasi_geometric_median_loss(
     The quasi-geometric median loss measures how far each outcome is from the others on average.
     This is an approximation of the geometric median loss that is computationally more efficient.
     """
-    differences = neighbor_states[:, None, :] - neighbor_states[None, :, :]
-    distances = norm(differences, axis=2)
+    distances = cdist(neighbor_states, neighbor_states, metric="euclidean")
     losses = np.mean(distances, axis=1)
     return losses
 
