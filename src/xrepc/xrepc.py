@@ -1,4 +1,4 @@
-from typing import Sequence, Literal
+from typing import Collection, Literal
 
 import numpy as np
 from numpy.typing import NDArray
@@ -117,7 +117,7 @@ class XRepC:
 
     def __init__(
         self,
-        neighbors: Sequence[str],
+        neighbors: Collection[str],
         alpha: float,
         eta: float,
         loss_func: LossFunc | Literal["qmed", "cmed", "gmed", "mean"] = "qmed",

@@ -1,6 +1,7 @@
+from typing import Collection
+
 import numpy as np
 from numpy.typing import NDArray
-from numpy.linalg import norm
 from scipy.spatial.distance import cdist
 
 
@@ -63,7 +64,7 @@ class RepC:
     """
 
     def __init__(
-        self, neighbors: list[str], alpha: float, eps: float = 0.001, f: int = 1
+        self, neighbors: Collection[str], alpha: float, eps: float = 0.001, f: int = 1
     ) -> None:
         self._neighbors = neighbors
         self._probs: NDArray[np.float64] = np.zeros(len(neighbors))

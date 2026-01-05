@@ -55,7 +55,7 @@ def make_accumulator(
 
         def accumulator(new_value: NDArray[np.float64]) -> NDArray[np.float64]:
             nonlocal index, cumulative_value
-            old_value = np.copy(buffer[index, :])
+            old_value = buffer[index, :].copy()
             buffer[index, :] = new_value
             cumulative_value += new_value - old_value
             index = (index + 1) % horizon_

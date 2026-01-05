@@ -47,7 +47,7 @@ def coordinate_wise_median_loss(
     This loss measures the Manhattan distance of each outcome from the coordinate-wise median of all outcomes.
     """
     outcome = np.median(neighbor_states, axis=0)
-    losses = norm(neighbor_states - outcome, axis=1, ord=1)
+    losses = norm(neighbor_states - outcome, axis=1, ord=np.inf)
     return losses
 
 
