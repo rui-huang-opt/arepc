@@ -1,8 +1,8 @@
-from typing import Collection
-
 import numpy as np
 from numpy.typing import NDArray
-from scipy.spatial.distance import cdist
+
+from ..network import NetworkOps
+from ..loss_func import quasi_geometric_median_loss
 
 
 def min_f(values: NDArray[np.float64], f: int) -> float | None:
@@ -37,8 +37,8 @@ class RepC:
 
     Parameters
     ----------
-    neighbors : list[str]
-        List of neighbor identifiers.
+    ops : NetworkOps
+        Network operations handler implementing the 'NetworkOps' protocol (defined in the 'network' module).
 
     alpha : float
         Mixing parameter between local state and aggregated prediction.
@@ -51,23 +51,15 @@ class RepC:
 
     Attributes
     ----------
-    n_neighbors : int
-        Number of neighbors.
-
     probs : dict[str, float]
         Current probabilities assigned to each neighbor.
-
-    Methods
-    -------
-    aggregate(local_state: NDArray[float64], neighbor_states: dict[str, NDArray[float64]]) -> NDArray[float64]
-        Aggregates neighbor states with the local state using the RepC algorithm.
     """
 
     def __init__(
-        self, neighbors: Collection[str], alpha: float, eps: float = 0.001, f: int = 1
+        self, ops: NetworkOps, alpha: float, eps: float = 0.001, f: int = 1
     ) -> None:
-        self._neighbors = neighbors
-        self._probs: NDArray[np.float64] = np.zeros(len(neighbors))
+        self._ops = ops
+        self._probs = np.zeros(ops.num_neighbors, dtype=np.float64)
         self._f = f
         self._alpha = alpha
 
@@ -78,12 +70,8 @@ class RepC:
         self._eps_t = eps
 
     @property
-    def n_neighbors(self) -> int:
-        return len(self._neighbors)
-
-    @property
     def probs(self) -> dict[str, float]:
-        return {j: self._probs[i] for i, j in enumerate(self._neighbors)}
+        return {j: self._probs[i] for i, j in enumerate(self._ops.neighbor_names)}
 
     def _compute_reputation(
         self, neighbor_states: NDArray[np.float64]
@@ -100,12 +88,11 @@ class RepC:
 
             r_j = 1 - loss_j
 
-        Note: the aggregation used to form `loss_j` mirrors the one used in the quasi-geometric-median-style loss in `xrepc.loss_func.py`.
-        We re-implement it locally here (instead of importing/calling the shared function) to keep this benchmark code self-contained.
+        Note: the loss function used here is adopted in the proposed XRepC method.
+        And is named "quasi-geometric median loss" in our implementation.
         """
 
-        distances = cdist(neighbor_states, neighbor_states, metric="euclidean")
-        losses = np.mean(distances, axis=1)
+        losses = quasi_geometric_median_loss(neighbor_states)
         return 1.0 - losses
 
     def _normalizer(self, reputations: NDArray[np.float64]) -> NDArray[np.float64]:
@@ -128,16 +115,13 @@ class RepC:
 
         return reputations / reputations.sum()
 
-    def aggregate(
-        self,
-        local_state: NDArray[np.float64],
-        neighbor_states: dict[str, NDArray[np.float64]],
-    ) -> NDArray[np.float64]:
-        neighbor_states_ = np.vstack([neighbor_states[j] for j in self._neighbors])
+    def step(self, local_state: NDArray[np.float64]) -> NDArray[np.float64]:
+        neighbor_state_map = self._ops.exchange(local_state)
+        neighbor_states = np.array(list(neighbor_state_map.values()))
 
-        reputations = self._compute_reputation(neighbor_states_)
+        reputations = self._compute_reputation(neighbor_states)
         self._probs = self._normalizer(reputations)
 
-        estimate = self._probs @ neighbor_states_
+        neighbor_estimate = self._probs @ neighbor_states
 
-        return local_state * (1 - self._alpha) + estimate * self._alpha
+        return local_state * (1 - self._alpha) + neighbor_estimate * self._alpha

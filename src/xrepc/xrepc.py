@@ -1,8 +1,9 @@
-from typing import Collection, Literal
+from typing import Literal
 
 import numpy as np
 from numpy.typing import NDArray
 
+from .network import NetworkOps
 from .loss_func import LossFunc, LOSS_FUNC_MAP
 from .accumulator import make_accumulator
 from .normalizer import NORMALIZER_MAP
@@ -14,8 +15,8 @@ class XRepC:
 
     Parameters
     ----------
-    neighbors : Sequence[str]
-        List of neighbor names.
+    ops : NetworkOps
+        Network operations handler implementing the 'NetworkOps' protocol (defined in the 'network' module).
 
     alpha : float
         Mixing parameter between local state and aggregated prediction.
@@ -108,16 +109,11 @@ class XRepC:
     ----------
     probs : dict[str, float]
         Current probabilities assigned to each neighbor.
-
-    Methods
-    -------
-    aggregate(local_state: NDArray[float64], neighbor_states: dict[str, NDArray[float64]]) -> NDArray[float64]
-        Aggregates neighbor states with the local state using the XRepC algorithm and returns the new local state.
     """
 
     def __init__(
         self,
-        neighbors: Collection[str],
+        ops: NetworkOps,
         alpha: float,
         eta: float,
         loss_func: LossFunc | Literal["qmed", "cmed", "gmed", "mean"] = "qmed",
@@ -125,7 +121,7 @@ class XRepC:
         normalization: Literal["softmax", "sparsemax", "1.5-entmax"] = "softmax",
         horizon: float = 5.0,
     ) -> None:
-        self._neighbors = neighbors
+        self._ops = ops
         self.alpha = alpha
         self.eta = eta
 
@@ -134,26 +130,32 @@ class XRepC:
         else:
             self._loss_func = loss_func
 
-        self._accumulator = make_accumulator(accumulation, horizon, len(neighbors))
+        self._accumulator = make_accumulator(accumulation, horizon, ops.num_neighbors)
         self._normalizer = NORMALIZER_MAP[normalization]
 
-        self._probs = np.zeros(len(neighbors), dtype=np.float64)
+        self._probs = np.zeros(ops.num_neighbors, dtype=np.float64)
 
     @property
     def probs(self) -> dict[str, float]:
-        return {j: self._probs[i] for i, j in enumerate(self._neighbors)}
+        return {j: self._probs[i] for i, j in enumerate(self._ops.neighbor_names)}
 
-    def aggregate(
-        self,
-        local_state: NDArray[np.float64],
-        neighbor_states: dict[str, NDArray[np.float64]],
-    ) -> NDArray[np.float64]:
-        n_states = np.stack([neighbor_states[j] for j in self._neighbors])
+    def step(self, local_state: NDArray[np.float64]) -> NDArray[np.float64]:
+        """
+        Performs one XRepC aggregation step.
 
-        current_losses = self._loss_func(n_states)
+        Args:
+            local_state (NDArray[np.float64]): The local state array.
+
+        Returns:
+            NDArray[np.float64]: The updated local state array.
+        """
+        neighbor_state_map = self._ops.exchange(local_state)
+        neighbor_states = np.array(list(neighbor_state_map.values()))
+
+        current_losses = self._loss_func(neighbor_states)
         cumulative_losses = self._accumulator(current_losses)
         self._probs = self._normalizer(-self.eta * cumulative_losses)
 
-        honest_avarage = self._probs @ n_states
+        neighbor_estimate = self._probs @ neighbor_states
 
-        return local_state * (1 - self.alpha) + honest_avarage * self.alpha
+        return local_state * (1 - self.alpha) + neighbor_estimate * self.alpha
