@@ -25,16 +25,16 @@ class XRepC:
     eta : float
         Temperature parameter controlling sensitivity to losses.
 
-    loss_func : LossFunc | Literal["qmed", "cmed", "mean"], optional
+    loss_func : LossFunc | Literal["cmed", "qmed", "gmed", "mean"], optional
         Loss function to evaluate neighbor predictions.
 
         If a string is provided, it selects one of the predefined loss functions.
         Options are
-        "qmed" (quasi-geometric median loss),
         "cmed" (coordinate-wise median loss),
+        "qmed" (quasi-geometric median loss),
         "gmed" (geometric median loss),
         and "mean" (mean loss).
-        Defaults to "qmed".
+        Defaults to "cmed".
 
         There are also two additional loss functions that require configuration:
         - GeometricMedianLoss:
@@ -116,7 +116,7 @@ class XRepC:
         ops: NetworkOps,
         alpha: float,
         eta: float,
-        loss_func: LossFunc | Literal["qmed", "cmed", "gmed", "mean"] = "qmed",
+        loss_func: LossFunc | Literal["cmed", "qmed", "gmed", "mean"] = "cmed",
         accumulation: Literal["exp-decay", "moving-horizon"] = "exp-decay",
         normalization: Literal["softmax", "sparsemax", "1.5-entmax"] = "softmax",
         horizon: float = 5.0,

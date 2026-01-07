@@ -26,19 +26,6 @@ class LossFunc(Protocol):
     def __call__(self, neighbor_states: NDArray[np.float64]) -> NDArray[np.float64]: ...
 
 
-def quasi_geometric_median_loss(
-    neighbor_states: NDArray[np.float64],
-) -> NDArray[np.float64]:
-    """
-    Quasi-geometric median loss function implementation.
-    The quasi-geometric median loss measures how far each outcome is from the others on average.
-    This is an approximation of the geometric median loss that is computationally more efficient.
-    """
-    distances = cdist(neighbor_states, neighbor_states, metric="euclidean")
-    losses = np.mean(distances, axis=1)
-    return losses
-
-
 def coordinate_wise_median_loss(
     neighbor_states: NDArray[np.float64],
 ) -> NDArray[np.float64]:
@@ -48,6 +35,19 @@ def coordinate_wise_median_loss(
     """
     outcome = np.median(neighbor_states, axis=0)
     losses = norm(neighbor_states - outcome, axis=1, ord=np.inf)
+    return losses
+
+
+def quasi_geometric_median_loss(
+    neighbor_states: NDArray[np.float64],
+) -> NDArray[np.float64]:
+    """
+    Quasi-geometric median loss function implementation.
+    The quasi-geometric median loss measures how far each outcome is from the others on average.
+    This is an approximation of the geometric median loss that is computationally more efficient.
+    """
+    pairwise_distances = cdist(neighbor_states, neighbor_states, metric="euclidean")
+    losses = np.mean(pairwise_distances, axis=1)
     return losses
 
 
@@ -100,8 +100,8 @@ class TrimmedMeanLoss:
 
 
 LOSS_FUNC_MAP: dict[str, LossFunc] = {
-    "qmed": quasi_geometric_median_loss,
     "cmed": coordinate_wise_median_loss,
+    "qmed": quasi_geometric_median_loss,
     "gmed": GeometricMedianLoss(),
     "mean": mean_loss,
 }
