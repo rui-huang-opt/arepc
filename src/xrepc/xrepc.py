@@ -130,14 +130,14 @@ class XRepC:
         else:
             self._loss_func = loss_func
 
-        self._accumulator = make_accumulator(accumulation, horizon, ops.num_neighbors)
+        self._accumulator = make_accumulator(accumulation, horizon, ops.degree)
         self._normalizer = NORMALIZER_MAP[normalization]
 
-        self._probs = np.zeros(ops.num_neighbors, dtype=np.float64)
+        self._probs = np.zeros(ops.degree, dtype=np.float64)
 
     @property
     def probs(self) -> dict[str, float]:
-        return {j: self._probs[i] for i, j in enumerate(self._ops.neighbor_names)}
+        return {j: self._probs[i] for i, j in enumerate(self._ops.neighbors)}
 
     def step(self, local_state: NDArray[np.float64]) -> NDArray[np.float64]:
         """
@@ -149,8 +149,7 @@ class XRepC:
         Returns:
             NDArray[np.float64]: The updated local state array.
         """
-        neighbor_state_map = self._ops.exchange(local_state)
-        neighbor_states = np.array(list(neighbor_state_map.values()))
+        neighbor_states = self._ops.exchange_as_array(local_state)
 
         current_losses = self._loss_func(neighbor_states)
         cumulative_losses = self._accumulator(current_losses)

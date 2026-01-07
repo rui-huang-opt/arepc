@@ -13,10 +13,18 @@ def min_f(values: NDArray[np.float64], f: int) -> float | None:
     The min-f value is defined as the f-th smallest unique value in the array,
     but it is not allowed to be the largest value.
     If there is only one unique value, return None to indicate that all values are equal.
-    """
 
-    if values.size == 0:
-        raise ValueError("Probabilities array is empty.")
+    Args:
+        values (NDArray[np.float64]): Array of values.
+
+        f (int): The rank of the value to retrieve (1-based index).
+
+    Returns:
+        float | None: The f-th smallest unique value, or None if all values are equal
+    """
+    assert values.size > 0, "values array must not be empty."
+
+    assert f >= 1, "f must be at least 1."
 
     deduped_values = np.unique(values)
 
@@ -36,14 +44,11 @@ class Reputations:
 
     Parameters
     ----------
-    names : list[str]
-        List of neighbor names.
-
-    scores : NDArray[np.float64]
-        Array of reputation scores corresponding to each neighbor.
+    value : NDArray[np.float64]
+        Array of reputation scores for each neighbor.
     """
 
-    value: NDArray[np.float64] = np.array([], dtype=np.float64)
+    value: NDArray[np.float64]
 
     def update(self, neighbor_states: NDArray[np.float64]) -> None:
         """
@@ -56,6 +61,9 @@ class Reputations:
         The reputation is then defined as:
 
             r_j = 1 - mean_pairwise_distance_j
+
+        Args:
+            neighbor_states (NDArray[np.float64]): 2D array where each row corresponds to a neighbor's state vector.
         """
         pairwise_distances = cdist(neighbor_states, neighbor_states, metric="euclidean")
         self.value = 1.0 - pairwise_distances.mean(axis=1)
@@ -68,15 +76,20 @@ class Reputations:
         1. Shift and scale reputations so that the worst f reputations are set to a small threshold eps_t,
            and all others are adjusted accordingly.
         2. Normalize the adjusted reputations to sum to 1.
-        """
-        min_f_reputation = min_f(self.value, f=f)
 
-        if min_f_reputation is None:
+        Args:
+            f (int): Number of tolerated faulty nodes.
+
+            eps (float): Confidence threshold for reputations.
+        """
+        min_f_value = min_f(self.value, f=f)
+
+        if min_f_value is None:
             self.value.fill(1.0 / len(self.value))
         else:
             max_reputation: float = self.value.max()
-            reputation_range = max_reputation - min_f_reputation
-            self.value -= min_f_reputation
+            reputation_range = max_reputation - min_f_value
+            self.value -= min_f_value
             self.value /= reputation_range
             self.value[self.value < 0.0] = eps
             self.value /= self.value.sum()
@@ -120,7 +133,6 @@ class RepC:
         self, ops: NetworkOps, alpha: float, eps: float = 0.001, f: int = 1
     ) -> None:
         self._ops = ops
-        self._f = f
         self._alpha = alpha
 
         if not (0.0 < eps < 1.0):
@@ -129,16 +141,29 @@ class RepC:
         self._eps = eps
         self._eps_t = eps
 
+        if f < 0:
+            raise ValueError("f must be a non-negative integer.")
+
+        self._f = f
+
         # Since reputations are computed at each step, we initialize an empty array.
-        self._reputations = Reputations()
+        self._reputations = Reputations(np.array([], dtype=np.float64))
 
     @property
     def reputations(self) -> dict[str, float]:
-        return self._reputations.to_dict(self._ops.neighbor_names)
+        return self._reputations.to_dict(self._ops.neighbors)
 
     def step(self, local_state: NDArray[np.float64]) -> NDArray[np.float64]:
-        neighbor_state_map = self._ops.exchange(local_state)
-        neighbor_states = np.array(list(neighbor_state_map.values()))
+        """
+        Performs one RepC aggregation step.
+
+        Args:
+            local_state (NDArray[np.float64]): The local state array.
+
+        Returns:
+            NDArray[np.float64]: The updated local state array.
+        """
+        neighbor_states = self._ops.exchange_as_array(local_state)
 
         self._reputations.update(neighbor_states)
         self._reputations.normalize(f=self._f, eps=self._eps_t)
