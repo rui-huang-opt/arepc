@@ -32,9 +32,6 @@ class NetworkOps(Protocol):
         """
         Exchanges the given state with all neighbor nodes and returns their states as a stacked array.
 
-        Note: Using this method will add an extra copy of the neighbor states in memory compared to the `exchange` method.
-        This is because the states are first received as individual memory buffers and then stacked into a single array.
-
         Args:
             state (NDArray[np.float64]): The state array to exchange with neighbors.
 
