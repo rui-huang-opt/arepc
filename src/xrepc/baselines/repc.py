@@ -153,9 +153,9 @@ class RepC:
     def reputations(self) -> dict[str, float]:
         return self._reputations.to_dict(self._ops.neighbors)
 
-    def step(self, local_state: NDArray[np.float64]) -> NDArray[np.float64]:
+    def weighted_mix(self, local_state: NDArray[np.float64]) -> NDArray[np.float64]:
         """
-        Performs one RepC aggregation step.
+        The operator that aggregates neighbor states with local state using RepC.
 
         Args:
             local_state (NDArray[np.float64]): The local state array.

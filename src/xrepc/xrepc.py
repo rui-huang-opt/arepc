@@ -139,9 +139,15 @@ class XRepC:
     def probs(self) -> dict[str, float]:
         return {j: self._probs[i] for i, j in enumerate(self._ops.neighbors)}
 
-    def step(self, local_state: NDArray[np.float64]) -> NDArray[np.float64]:
+    def weighted_mix(self, local_state: NDArray[np.float64]) -> NDArray[np.float64]:
         """
-        Performs one XRepC aggregation step.
+        The operator that aggregates neighbor states with local state using XRepC.
+        The method named 'weighted_mix' is used to align with the naming convention:
+            x_i(t+1) = w_ii * x_i(t) + sum_{j in N_i} w_ij * x_j(t),
+        where W is the weight matrix derived from reputations.
+        The difference is that here we use dynamic weights based on reputations computed from losses.
+        This also facilitates easier integration with our distributed optimization framework:
+            https://github.com/rui-huang-opt/discoopt.
 
         Args:
             local_state (NDArray[np.float64]): The local state array.
