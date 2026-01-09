@@ -1,3 +1,4 @@
+import logging
 from dataclasses import dataclass
 from typing import Collection
 
@@ -6,6 +7,8 @@ from numpy.typing import NDArray
 from scipy.spatial.distance import cdist
 
 from ..network import NetworkOps
+
+logger = logging.getLogger(__name__)
 
 
 def min_f(values: NDArray[np.float64], f: int) -> float | None:
@@ -22,13 +25,9 @@ def min_f(values: NDArray[np.float64], f: int) -> float | None:
     Returns:
         float | None: The f-th smallest unique value, or None if all values are equal
     """
-    assert values.size > 0, "values array must not be empty."
-
-    assert f >= 1, "f must be at least 1."
-
     deduped_values = np.unique(values)
 
-    if len(deduped_values) == 1:
+    if len(deduped_values) == 1 or f == 0:
         return None
 
     if f >= len(deduped_values):
@@ -95,8 +94,6 @@ class Reputations:
             self.value /= self.value.sum()
 
     def to_dict(self, neighbor_names: Collection[str]) -> dict[str, float]:
-        if self.value.size == 0:
-            raise ValueError("Reputations have not been computed yet.")
         return {j: self.value[i] for i, j in enumerate(neighbor_names)}
 
 
@@ -117,11 +114,11 @@ class RepC:
     alpha : float
         Mixing parameter between local state and aggregated prediction.
 
+    f : int
+        The number of tolerated faulty nodes.
+
     eps : float, optional
         Confidence threshold for reputation normalization. Defaults to 0.001.
-
-    f : int, optional
-        Number of tolerated faulty nodes. Defaults to 1.
 
     Attributes
     ----------
@@ -130,24 +127,31 @@ class RepC:
     """
 
     def __init__(
-        self, ops: NetworkOps, alpha: float, eps: float = 0.001, f: int = 1
+        self,
+        ops: NetworkOps,
+        alpha: float,
+        f: int,
+        eps: float = 0.001,
     ) -> None:
         self._ops = ops
-        self._alpha = alpha
+        self.alpha = alpha
 
-        if not (0.0 < eps < 1.0):
-            raise ValueError("eps must be in the range (0, 1).")
+        if not (0.0 <= eps < 1.0):
+            err_msg = "eps must be in the range [0, 1)."
+            logger.error(err_msg)
+            raise ValueError(err_msg)
 
         self._eps = eps
         self._eps_t = eps
 
         if f < 0:
-            raise ValueError("f must be a non-negative integer.")
+            err_msg = "f must be a non-negative integer."
+            logger.error(err_msg)
+            raise ValueError(err_msg)
 
         self._f = f
 
-        # Since reputations are computed at each step, we initialize an empty array.
-        self._reputations = Reputations(np.array([], dtype=np.float64))
+        self._reputations = Reputations(np.zeros(ops.degree, dtype=np.float64))
 
     @property
     def reputations(self) -> dict[str, float]:
@@ -172,4 +176,4 @@ class RepC:
 
         neighbor_estimate = self._reputations.value @ neighbor_states
 
-        return local_state * (1 - self._alpha) + neighbor_estimate * self._alpha
+        return local_state * (1 - self.alpha) + neighbor_estimate * self.alpha

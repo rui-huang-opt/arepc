@@ -1,3 +1,4 @@
+import logging
 from typing import Protocol
 
 import numpy as np
@@ -5,7 +6,9 @@ from numpy.typing import NDArray
 from numpy.linalg import norm
 from scipy.spatial.distance import cdist
 
-from .utils import geometric_median
+from .utils import geometric_median, trimmed_mean
+
+logger = logging.getLogger(__name__)
 
 
 class LossFunc(Protocol):
@@ -56,6 +59,14 @@ class GeometricMedianLoss:
     Geometric median loss function implementation.
     This loss measures the Euclidean distance of each outcome from the geometric median of all outcomes.
     The drawback of this loss is its computational complexity, as finding the geometric median can be more intensive than other statistics.
+
+    Parameters
+    ----------
+    tol : float
+        The tolerance for convergence in the geometric median calculation. Default is 1e-6.
+
+    max_iter : int
+        The maximum number of iterations for the geometric median calculation. Default is 1000.
     """
 
     def __init__(self, tol: float = 1e-6, max_iter: int = 1000) -> None:
@@ -83,18 +94,25 @@ class TrimmedMeanLoss:
     """
     Trimmed mean loss function implementation.
     This loss measures the Euclidean distance of each outcome from the trimmed mean of all outcomes.
-    The trimmed mean is computed by removing the highest and lowest 'f' values for each coordinate before calculating the mean.
+    The trimmed mean is computed by removing a certain ratio of the highest and lowest values along each dimension before calculating the mean.
+    This loss provides a balance between robustness to outliers and computational efficiency.
+
+    Parameters
+    ----------
+    trim_ratio : float
+        The proportion of values to trim from each end of the data before computing the mean.
     """
 
     def __init__(self, f: int) -> None:
-        self.f = f
+        if f < 0:
+            err_msg = "f must be a non-negative integer."
+            logger.error(err_msg)
+            raise ValueError(err_msg)
+
+        self._f = f
 
     def __call__(self, neighbor_states: NDArray[np.float64]) -> NDArray[np.float64]:
-        n = neighbor_states.shape[0]
-        sorted_neighbor_states = np.sort(neighbor_states, axis=0)
-        trimmed_neighbor_states = sorted_neighbor_states[self.f : n - self.f]
-
-        outcome = np.mean(trimmed_neighbor_states, axis=0)
+        outcome = trimmed_mean(neighbor_states, self._f)
         losses = norm(neighbor_states - outcome, axis=1)
         return losses
 
