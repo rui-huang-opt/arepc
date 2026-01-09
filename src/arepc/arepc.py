@@ -9,9 +9,9 @@ from .accumulator import make_accumulator
 from .normalizer import NORMALIZER_MAP
 
 
-class XRepC:
+class ARepC:
     """
-    Expressive Reputation-based Consensus (XRepC) robust aggregation algorithm.
+    Adaptive Reputation-based Consensus (ARepC) robust aggregation algorithm.
 
     Parameters
     ----------
@@ -49,20 +49,20 @@ class XRepC:
         To use these, instantiate them separately and pass the instance as `loss_func`.
         e.g.,
         ```python
-        from xrepc import XRepC, GeometricMedianLoss, TrimmedMeanLoss
+        from arepc import ARepC, GeometricMedianLoss, TrimmedMeanLoss
 
         loss_func = GeometricMedianLoss(tol=1e-5, max_iter=2000)
         # or
         loss_func = TrimmedMeanLoss(f=2)
 
-        xrepc = XRepC(neighbors, 0.5, 1.0, loss_func=loss_func)
+        arepc = ARepC(neighbors, 0.5, 1.0, loss_func=loss_func)
         ```
 
         Besides, you can also define your own custom loss function by implementing a callable that takes
         a 2D numpy array of stacked neighbor states and returns a 1D numpy array of corresponding losses.
         e.g.,
-        ```pythonpython
-        from xrepc import XRepC
+        ```python
+        from arepc import ARepC
         from numpy.typing import NDArray
         import numpy as np
 
@@ -76,14 +76,14 @@ class XRepC:
                 losses = ...
                 return losses
 
-        xrepc = XRepC(neighbors, 0.5, 1.0, loss_func=CustomLoss(...))
+        arepc = ARepC(neighbors, 0.5, 1.0, loss_func=CustomLoss(...))
         # or
         def custom_loss(neighbor_states: NDArray[np.float64]) -> NDArray[np.float64]:
             # Implement your custom loss computation here
             losses = ...
             return losses
 
-        xrepc = XRepC(neighbors, 0.5, 1.0, loss_func=custom_loss)
+        arepc = ARepC(neighbors, 0.5, 1.0, loss_func=custom_loss)
         ```
 
     accumulation : str, optional
@@ -141,7 +141,7 @@ class XRepC:
 
     def weighted_mix(self, local_state: NDArray[np.float64]) -> NDArray[np.float64]:
         """
-        The operator that aggregates neighbor states with local state using XRepC.
+        The operator that aggregates neighbor states with local state using ARepC.
         The method named 'weighted_mix' is used to align with the naming convention:
             x_i(t+1) = w_ii * x_i(t) + sum_{j in N_i} w_ij * x_j(t),
         where W is the weight matrix derived from reputations.

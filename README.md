@@ -4,13 +4,13 @@
 Install via pip:
 
 ```bash
-pip install git+https://github.com/rui-huang-opt/xrepc.git
+pip install git+https://github.com/rui-huang-opt/arepc.git
 ```
 
 Or, for development:
 
 ```bash
-git clone https://github.com/rui-huang-opt/xrepc.git
-cd xrepc
+git clone https://github.com/rui-huang-opt/arepc.git
+cd arepc
 pip install -e .
 ```
