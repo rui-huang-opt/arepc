@@ -6,7 +6,7 @@ from numpy.typing import NDArray
 from numpy.linalg import norm
 from scipy.spatial.distance import cdist
 
-from .utils import geometric_median, trimmed_mean
+from .geometry import geometric_median, trimmed_mean
 
 logger = logging.getLogger(__name__)
 

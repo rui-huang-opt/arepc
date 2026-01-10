@@ -4,7 +4,7 @@ import numpy as np
 from numpy.typing import NDArray
 
 from ..network import NetworkOps
-from ..utils import trimmed_mean
+from ..geometry import trimmed_mean
 
 
 logger = logging.getLogger(__name__)
@@ -15,6 +15,11 @@ class WMSR:
     Weighted Mean Subsequence Reduced (W-MSR) baseline implementation.
     This baseline computes the next state by taking a weighted average of the neighboring states,
     excluding the highest and lowest `f` values to mitigate the influence of outliers.
+
+    Note: Standard W-MSR can only be applied to scalar states.
+    For multi-dimensional states, this implementation applies W-MSR independently to each dimension.
+    But this does not guarantee convergence to the true mean in multi-dimensional spaces.
+    We use this approach only for simplicity and as a baseline for comparison.
 
     Parameters
     ----------
