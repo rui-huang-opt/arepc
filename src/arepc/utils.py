@@ -57,6 +57,8 @@ def trimmed_mean(data: NDArray[np.float64], n_trim: int = 1) -> NDArray[np.float
     """
     Compute the trimmed mean of the data by removing the n_trim smallest and largest values.
     The data is assumed to be a 2D array where each row is a sample and each column is a feature.
+    When 2 * n_trim >= n_samples, it reduces n_trim to ensure at least one value remains.
+    When n_trim <= 0, it returns the regular mean.
 
     Parameters:
         data (NDArray[float64]):
@@ -68,17 +70,12 @@ def trimmed_mean(data: NDArray[np.float64], n_trim: int = 1) -> NDArray[np.float
     Returns:
         NDArray[float64]: The trimmed mean of the data.
     """
-    if n_trim <= 0:
-        warn_msg = f"n_trim should be positive, got {n_trim}. Returning regular mean."
-        logger.warning(warn_msg)
-        return data.mean(axis=0)
-
     if 2 * n_trim >= data.shape[0]:
         n_trim = data.shape[0] // 2 - 1
-        warn_msg = f"n_trim too large for sample size, reduced to {n_trim}."
-        logger.warning(warn_msg)
 
-    n = data.shape[0]
+    if n_trim <= 0:
+        return data.mean(axis=0)
+
     sorted_data = np.sort(data, axis=0)
-    trimmed_data = sorted_data[n_trim : n - n_trim]
+    trimmed_data = sorted_data[n_trim:-n_trim]
     return trimmed_data.mean(axis=0)

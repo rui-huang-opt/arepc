@@ -17,6 +17,7 @@ dependencies = [
 
 [project.optional-dependencies]
 vsc = ["ipykernel>=6.29.5"]
+vis = ["matplotlib>=3.10.3"]
 
 [tool.setuptools.packages.find]
 where = ["src"]
