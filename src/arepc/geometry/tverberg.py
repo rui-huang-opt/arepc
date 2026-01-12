@@ -153,7 +153,7 @@ def iterated_tverberg(data: NDArray[np.float64]) -> CertifiedPoint:
     if n_buckets <= 0:
         err_msg = (
             "The number of samples is too small to compute a Tverberg point. "
-            f"At least {2 * (n_features + 1) ** 2} samples are required. "
+            f"At least {2 * (n_features + 1) ** 2} samples are required."
             f"But got {n_samples} samples."
         )
         logger.error(err_msg)
