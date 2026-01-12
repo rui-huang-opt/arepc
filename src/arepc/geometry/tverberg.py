@@ -4,40 +4,104 @@ from dataclasses import dataclass
 
 import numpy as np
 from numpy.typing import NDArray
+from scipy.linalg import null_space
+from scipy.optimize import linprog
 
 logger = logging.getLogger(__name__)
 
 
 @dataclass(slots=True)
-class TverbergNode:
+class CertifiedPoint:
+    """
+    A data structure to hold a point and its certification proof.
+
+    Attributes:
+        point (NDArray[float64]):
+            A point in d-dimensional space.
+
+        proof (list[list[int]]):
+            A list of lists, where each sublist contains the indices of points
+            that certify the its depth.
+    """
+
     point: NDArray[np.float64]
     proof: list[list[int]]
 
 
-def radon(
-    points: NDArray[np.float64],
-) -> tuple[NDArray[np.float64], list[list[int]]]:
+def affine_dependence(points: NDArray[np.float64]) -> NDArray[np.float64]:
     """
-    Compute the Radon point of a set of points in R^d.
+    Compute an affine dependence among the given points.
 
     Parameters:
         points (NDArray[float64]):
-            An array of shape (d + 2, d) representing the points.
+            An array of shape (n_samples, n_features).
 
     Returns:
-        tuple[NDArray[float64], list[list[int]]]:
-            A tuple containing the Radon point and the proof (partition of points).
+        NDArray[float64]:
+            A vector of coefficients representing the affine dependence.
     """
-    aug_points = np.hstack((points, np.ones((points.shape[0], 1))))
-    _, _, vh = np.linalg.svd(aug_points.T)
-    null_space_vector = vh[-1, :]
-    u1 = np.where(null_space_vector > 0)[0].tolist()
-    u2 = np.where(null_space_vector < 0)[0].tolist()
+    n_samples = points.shape[0]
+    aug_points = np.vstack([points.T, np.ones(n_samples)])
+    ns = null_space(aug_points)
 
-    weight = null_space_vector[u1]
-    radon_point = (weight @ points[u1] / weight.sum())[:-1]
+    if ns.size == 0:
+        err_msg = "No affine dependence found among the given points."
+        logger.error(err_msg)
+        raise ValueError(err_msg)
 
-    return radon_point, [u1, u2]
+    return ns[:, 0]
+
+
+def convex_combination(
+    target: NDArray[np.float64], points: NDArray[np.float64]
+) -> NDArray[np.float64]:
+    """
+    Compute a convex combination of the given points.
+
+    Parameters:
+        points (NDArray[float64]):
+            An array of shape (n_samples, n_features).
+
+    Returns:
+        NDArray[float64]:
+            A vector of coefficients representing the convex combination.
+    """
+    n_samples = points.shape[0]
+    c = np.zeros(n_samples)
+    A_eq = np.vstack([points.T, np.ones(n_samples)])
+    b_eq = np.r_[target, 1]
+    bounds = [(0, None) for _ in range(n_samples)]
+
+    res = linprog(c, A_eq=A_eq, b_eq=b_eq, bounds=bounds, method="highs")
+
+    if not res["success"]:
+        err_msg = f"Linear programming failed: {res['message']}"
+        logger.error(err_msg)
+        raise ValueError(err_msg)
+
+    return res["x"]
+
+
+def radon(points: NDArray[np.float64]) -> CertifiedPoint:
+    """
+    Radon partitioning of d+2 points in d-dimensional space.
+
+    Parameters:
+        points (NDArray[float64]):
+            An array of shape (d+2, d).
+
+    Returns:
+        CertifiedPoint:
+            A CertifiedPoint object containing the Radon point and the proof (partition of points).
+    """
+    ad = affine_dependence(points)
+    pos_indices = np.where(ad > 0)[0]
+    neg_indices = np.where(ad < 0)[0]
+
+    weight = ad[pos_indices]
+    radon_point = weight @ points[pos_indices] / weight.sum()
+
+    return CertifiedPoint(radon_point, [pos_indices.tolist(), neg_indices.tolist()])
 
 
 def prune(
@@ -50,71 +114,84 @@ def prune(
 
     while len(indices) > n_features + 1:
         selected_points = data[indices, :]
-        n_indices = len(indices)
+        cc = convex_combination(point, selected_points)
+        ad = affine_dependence(selected_points)
 
-        aug_points = np.hstack((selected_points, np.ones((n_indices, 1))))
+        pos = np.where(ad > 0)[0]
 
-        _, _, vh = np.linalg.svd(aug_points.T)
-        null_space_vector = vh[-1, :]
+        if pos.size == 0:
+            err_msg = "Affine dependence has no positive coefficients."
+            logger.error(err_msg)
+            raise ValueError(err_msg)
 
-        to_remove = np.argmax(np.abs(null_space_vector)).item()
-        indices.pop(to_remove)
+        ratios = cc[pos] / ad[pos]
+        remove_index = pos[np.argmin(ratios)]
+        indices.pop(remove_index)
 
     return indices
 
 
-def iterated_tverberg(data: NDArray[np.float64]) -> TverbergNode:
+def iterated_tverberg(data: NDArray[np.float64]) -> CertifiedPoint:
     """
     Compute the Tverberg point of the data using an iterative approximation method.
+
+    The paper introducing IteratedTverberg is:
+    Miller, G. L., & Sheehy, D. R. (2009).
+    “Approximate Center Points with Proofs.”
+    In Proceedings of the Twenty-Fifth Annual Symposium on Computational Geometry, pp. 153-158.
 
     Parameters:
         data (NDArray[float64]):
             An array of shape (n_samples, n_features).
 
     Returns:
-        NDArray[float64]: The approximated Tverberg point of the data.
+        CertifiedPoint: The approximated Tverberg point of the data.
     """
     n_samples, n_features = data.shape
-    n_stacks = math.ceil(math.log2(n_samples / (2 * (n_features + 1) ** 2)))
-    stacks: list[list[TverbergNode]] = [[] for _ in range(n_stacks + 1)]
+    n_buckets = math.ceil(math.log2(n_samples / (2 * (n_features + 1) ** 2)))
 
+    if n_buckets <= 0:
+        err_msg = (
+            "The number of samples is too small to compute a Tverberg point. "
+            f"At least {2 * (n_features + 1) ** 2} samples are required. "
+            f"But got {n_samples} samples."
+        )
+        logger.error(err_msg)
+        raise ValueError(err_msg)
+
+    buckets: list[list[CertifiedPoint]] = [[] for _ in range(n_buckets + 1)]
     for i in range(n_samples):
-        t_node = TverbergNode(point=data[i], proof=[[i]])
-        stacks[0].append(t_node)
+        c_point = CertifiedPoint(point=data[i, :], proof=[[i]])
+        buckets[0].append(c_point)
 
-    while not stacks[n_stacks]:
+    while not buckets[n_buckets]:
         new_proof: list[list[int]] = []
 
-        for ell in range(n_stacks, 0, -1):
-            if len(stacks[ell - 1]) >= n_features + 2:
+        for ell in range(n_buckets, 0, -1):
+            if len(buckets[ell - 1]) >= n_features + 2:
                 break
 
-        qs = [stacks[ell - 1].pop() for _ in range(n_features + 2)]
-        aug_points = np.array([q.point for q in qs])
-        radon_point, radon_proof = radon(aug_points)
+        qs = [buckets[ell - 1].pop() for _ in range(n_features + 2)]
+        radon_point = radon(np.array([cp.point for cp in qs]))
 
         depth_of_qj = 2 ** (ell - 1)
 
         for k in range(2):
             for i in range(depth_of_qj):
                 x: list[int] = []
-                for j in radon_proof[k]:
+                for j in radon_point.proof[k]:
                     x.extend(qs[j].proof[i])
 
-                x_pruned = prune(radon_point, x, data)
+                x_pruned = prune(radon_point.point, x, data)
                 new_proof.append(x_pruned)
 
                 x_recycled = [j for j in x if j not in x_pruned]
 
                 for j in x_recycled:
-                    t_node = TverbergNode(point=data[j], proof=[[j]])
-                    stacks[0].append(t_node)
+                    c_point = CertifiedPoint(point=data[j], proof=[[j]])
+                    buckets[0].append(c_point)
 
-        t_node = TverbergNode(point=radon_point, proof=new_proof)
-        stacks[ell].append(t_node)
+        c_point = CertifiedPoint(point=radon_point.point, proof=new_proof)
+        buckets[ell].append(c_point)
 
-    return stacks[n_stacks][0]
-
-
-# This function is not tested yet.
-# Don't use it in production.
+    return buckets[n_buckets][0]

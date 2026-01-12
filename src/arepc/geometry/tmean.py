@@ -1,9 +1,5 @@
-import logging
-
 import numpy as np
 from numpy.typing import NDArray
-
-logger = logging.getLogger(__name__)
 
 
 def trimmed_mean(data: NDArray[np.float64], n_trim: int = 1) -> NDArray[np.float64]:
