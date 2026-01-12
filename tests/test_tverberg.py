@@ -117,19 +117,21 @@ class TestTverberg(unittest.TestCase):
         assert_array_almost_equal(points[new_indices].T @ cc, target)
 
     def test_iterated_tverberg(self):
-        from arepc.geometry.tverberg import iterated_tverberg
+        from arepc.geometry.tverberg import iterated_tverberg, convex_combination
 
         rng = np.random.default_rng(0)
         data = rng.random((20, 2))
 
         cp = iterated_tverberg(data)
 
-        self.assertIsInstance(cp.proof, list)
+        d = data.shape[1]
+        self.assertGreater(len(cp.proof), 0)
+
         for block in cp.proof:
-            self.assertIsInstance(block, list)
-            for idx in block:
-                self.assertIsInstance(idx, int)
-                self.assertTrue(0 <= idx < len(data))
+            self.assertLessEqual(len(block), d + 1)
+
+            cc = convex_combination(cp.point, data[block])
+            assert_array_almost_equal(data[block].T @ cc, cp.point)
 
 
 if __name__ == "__main__":
