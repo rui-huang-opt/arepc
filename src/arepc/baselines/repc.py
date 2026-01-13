@@ -174,6 +174,6 @@ class RepC:
 
         self._eps_t *= self._eps
 
-        neighbor_estimate = self._reputations.value @ neighbor_states
+        center_proxy = self._reputations.value @ neighbor_states
 
-        return local_state * (1 - self.alpha) + neighbor_estimate * self.alpha
+        return local_state * (1 - self.alpha) + center_proxy * self.alpha

@@ -161,6 +161,6 @@ class ARepC:
         cumulative_losses = self._accumulator(current_losses)
         self._probs = self._normalizer(-self.eta * cumulative_losses)
 
-        neighbor_estimate = self._probs @ neighbor_states
+        center_proxy = self._probs @ neighbor_states
 
-        return local_state * (1 - self.alpha) + neighbor_estimate * self.alpha
+        return local_state * (1 - self.alpha) + center_proxy * self.alpha

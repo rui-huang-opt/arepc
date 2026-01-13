@@ -1,9 +1,11 @@
 import math
 import logging
+from typing import Callable, Literal
 from dataclasses import dataclass
 
 import numpy as np
 from numpy.typing import NDArray
+from numpy.random import shuffle
 from scipy.linalg import null_space
 from scipy.optimize import linprog
 
@@ -82,7 +84,9 @@ def convex_combination(
     return res["x"]
 
 
-def radon(points: NDArray[np.float64]) -> CertifiedPoint:
+def radon(
+    points: NDArray[np.float64],
+) -> tuple[NDArray[np.float64], tuple[list[int], list[int]]]:
     """
     Radon partitioning of d+2 points in d-dimensional space.
 
@@ -91,8 +95,8 @@ def radon(points: NDArray[np.float64]) -> CertifiedPoint:
             An array of shape (d+2, d).
 
     Returns:
-        CertifiedPoint:
-            A CertifiedPoint object containing the Radon point and the proof (partition of points).
+        tuple[NDArray[np.float64], tuple[list[int], list[int]]]:
+            A tuple containing the Radon point and the proof (partition of points).
     """
     ad = affine_dependence(points)
     pos_indices = np.where(ad > 0)[0]
@@ -101,7 +105,7 @@ def radon(points: NDArray[np.float64]) -> CertifiedPoint:
     weight = ad[pos_indices]
     radon_point = weight @ points[pos_indices] / weight.sum()
 
-    return CertifiedPoint(radon_point, [pos_indices.tolist(), neg_indices.tolist()])
+    return radon_point, (pos_indices.tolist(), neg_indices.tolist())
 
 
 def prune(
@@ -129,6 +133,54 @@ def prune(
         indices.pop(remove_index)
 
     return indices
+
+
+def iterated_radon(data: NDArray[np.float64]) -> NDArray[np.float64]:
+    """
+    Compute an approximate centerpoint of the data using the Iterated Radon method.
+
+    The paper introducing IteratedRadon is:
+    Clarkson, K. L., Eppstein, D., Miller, G. L., Sturtivant, C., & Teng, S.-H. (1993).
+    “Approximating Center Points with Iterated Radon Points.”
+    In Proceedings of the Ninth Annual Symposium on Computational Geometry, pp. 91-98.
+
+    Parameters:
+        data (NDArray[float64]):
+            An array of shape (n_samples, n_features).
+
+    Returns:
+        NDArray[float64]: The approximated Tverberg point of the data.
+    """
+    n_samples, n_features = data.shape
+
+    if n_samples < n_features + 2:
+        err_msg = (
+            "The number of samples is too small to compute a Tverberg point. "
+            f"At least {n_features + 2} samples are required."
+            f"But got {n_samples} samples."
+        )
+        logger.error(err_msg)
+        raise ValueError(err_msg)
+
+    radon_arity = n_features + 2
+    current_points = data.copy()
+
+    while len(current_points) >= radon_arity:
+        shuffle(current_points)
+
+        new_points = []
+        full = (len(current_points) // radon_arity) * radon_arity
+
+        for i in range(0, full, radon_arity):
+            block = current_points[i : i + radon_arity]
+            r_point, _ = radon(block)
+            new_points.append(r_point)
+
+        remainder = current_points[full : len(current_points)]
+
+        current_points = np.vstack([np.array(new_points), remainder])
+
+    return current_points[0, :]
 
 
 def iterated_tverberg(data: NDArray[np.float64]) -> CertifiedPoint:
@@ -172,17 +224,17 @@ def iterated_tverberg(data: NDArray[np.float64]) -> CertifiedPoint:
                 break
 
         qs = [buckets[ell - 1].pop() for _ in range(n_features + 2)]
-        radon_point = radon(np.array([cp.point for cp in qs]))
+        radon_point, radon_groups = radon(np.array([cp.point for cp in qs]))
 
         depth_of_qj = 2 ** (ell - 1)
 
         for k in range(2):
             for i in range(depth_of_qj):
                 x: list[int] = []
-                for j in radon_point.proof[k]:
+                for j in radon_groups[k]:
                     x.extend(qs[j].proof[i])
 
-                x_pruned = prune(radon_point.point, x, data)
+                x_pruned = prune(radon_point, x, data)
                 new_proof.append(x_pruned)
 
                 x_recycled = [j for j in x if j not in x_pruned]
@@ -191,7 +243,7 @@ def iterated_tverberg(data: NDArray[np.float64]) -> CertifiedPoint:
                     c_point = CertifiedPoint(point=data[j], proof=[[j]])
                     buckets[0].append(c_point)
 
-        c_point = CertifiedPoint(point=radon_point.point, proof=new_proof)
+        c_point = CertifiedPoint(point=radon_point, proof=new_proof)
         buckets[ell].append(c_point)
 
     return buckets[n_buckets][0]

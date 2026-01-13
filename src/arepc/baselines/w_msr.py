@@ -54,5 +54,5 @@ class WMSR:
             NDArray[np.float64]: The updated local state array.
         """
         neighbor_states = self._ops.exchange_as_array(local_state)
-        neighbor_estimate = trimmed_mean(neighbor_states, self._f)
-        return local_state * (1 - self.alpha) + neighbor_estimate * self.alpha
+        center_proxy = trimmed_mean(neighbor_states, self._f)
+        return local_state * (1 - self.alpha) + center_proxy * self.alpha

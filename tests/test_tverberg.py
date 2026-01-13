@@ -59,10 +59,8 @@ class TestTverberg(unittest.TestCase):
                 [1.0, 1.0],
             ]
         )
-        cp = radon(points)
-
-        r = cp.point
-        P, N = cp.proof
+        r, groups = radon(points)
+        P, N = groups
 
         # Partitions should be non-empty
         self.assertTrue(len(P) > 0)
@@ -72,7 +70,7 @@ class TestTverberg(unittest.TestCase):
         assert_array_almost_equal(r, np.array([0.5, 0.5]))
 
         # Verify r is in the convex hulls of both partitions
-        for part in cp.proof:
+        for part in groups:
             cc = convex_combination(r, points[part])
             assert_array_almost_equal(points[part].T @ cc, r)
 
