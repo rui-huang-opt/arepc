@@ -133,11 +133,11 @@ class ARepC:
         self._accumulator = make_accumulator(accumulation, horizon, ops.degree)
         self._normalizer = NORMALIZER_MAP[normalization]
 
-        self._probs = np.zeros(ops.degree, dtype=np.float64)
+        self._reputations = np.zeros(ops.degree, dtype=np.float64)
 
     @property
-    def probs(self) -> dict[str, float]:
-        return {j: self._probs[i] for i, j in enumerate(self._ops.neighbors)}
+    def reputations(self) -> dict[str, float]:
+        return {j: self._reputations[i] for i, j in enumerate(self._ops.neighbors)}
 
     def weighted_mix(self, local_state: NDArray[np.float64]) -> NDArray[np.float64]:
         """
@@ -159,8 +159,8 @@ class ARepC:
 
         current_losses = self._loss_func(neighbor_states)
         cumulative_losses = self._accumulator(current_losses)
-        self._probs = self._normalizer(-self.eta * cumulative_losses)
+        self._reputations = self._normalizer(-self.eta * cumulative_losses)
 
-        center_proxy = self._probs @ neighbor_states
+        center_proxy = self._reputations @ neighbor_states
 
         return local_state * (1 - self.alpha) + center_proxy * self.alpha
