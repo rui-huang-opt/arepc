@@ -94,7 +94,7 @@ class Reputations:
             self.value /= self.value.sum()
 
     def to_dict(self, neighbor_names: Collection[str]) -> dict[str, float]:
-        return {j: self.value[i] for i, j in enumerate(neighbor_names)}
+        return {j: float(self.value[i]) for i, j in enumerate(neighbor_names)}
 
 
 class RepC:

@@ -137,7 +137,9 @@ class ARepC:
 
     @property
     def reputations(self) -> dict[str, float]:
-        return {j: self._reputations[i] for i, j in enumerate(self._ops.neighbors)}
+        return {
+            j: float(self._reputations[i]) for i, j in enumerate(self._ops.neighbors)
+        }
 
     def weighted_mix(self, local_state: NDArray[np.float64]) -> NDArray[np.float64]:
         """
