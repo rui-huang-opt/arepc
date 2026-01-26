@@ -90,7 +90,7 @@ class Reputations:
             reputation_range = max_reputation - min_f_value
             self.value -= min_f_value
             self.value /= reputation_range
-            self.value[self.value < 0.0] = eps
+            self.value[self.value <= 0.0] = eps
             self.value /= self.value.sum()
 
     def to_dict(self, neighbor_names: Collection[str]) -> dict[str, float]:
