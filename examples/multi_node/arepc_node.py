@@ -36,5 +36,8 @@ for k in range(args.n_iter - 1):
     # Compute new state
     x[k + 1] = agent.weighted_mix(x[k])
 
-    print(f"Node {args.idx} at iteration {k + 1}: state: {x[k + 1]}")
-    print(f"Node {args.idx} at iteration {k + 1}: reputations: {agent.reputations}")
+import pathlib
+
+output_path = pathlib.Path.cwd().parent.parent / "outputs" / "arepc_honest"
+output_path.mkdir(parents=True, exist_ok=True)
+np.save(output_path / f"node_{args.idx}_states.npy", x)

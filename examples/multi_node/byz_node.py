@@ -27,20 +27,13 @@ from topolink import NodeHandle
 
 nh = NodeHandle(args.idx)
 
-x = np.zeros((args.n_iter, args.n_state))
-seed(int(args.idx))  # Ensure reproducibility for each node
-x[0] = uniform(lower_bound, upper_bound, args.n_state)
-for k in range(args.n_iter - 1):
-    laplacian = nh.laplacian(x[k])
+from numpy.random import seed, uniform
+from topolink import NodeHandle
 
-    if args.attack == "constant":
-        x[k + 1] = x[k]
-    elif args.attack == "random":
-        x[k + 1] = uniform(lower_bound, upper_bound, args.n_state)
-    elif args.attack == "disturbance":
-        disturbance = uniform(-1.0, 1.0, args.n_state)
-        x[k + 1] = x[k] - laplacian * args.alpha + disturbance
-    elif args.attack == "coordination":
-        disturbance = np.zeros(args.n_state)
-        disturbance[0] = uniform(lower_bound, upper_bound)
-        x[k + 1] = x[k] - laplacian * args.alpha + disturbance
+nh = NodeHandle(args.idx)
+
+seed(int(args.idx))  # Ensure reproducibility for each node
+
+for _ in range(args.n_iter - 1):
+    attack_value = uniform(-100, 100, args.n_state)
+    _ = nh.laplacian(attack_value)
