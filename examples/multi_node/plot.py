@@ -1,3 +1,12 @@
+"""
+Plot the performance of the ARepC algorithm across honest nodes
+in a multi-node experimental setup.
+
+Before running this script, ensure that all honest nodes have
+finished execution and that their output states have been
+synchronized into the `outputs/` directory under the project root.
+"""
+
 import pathlib
 
 import numpy as np
@@ -37,3 +46,4 @@ fig.tight_layout()
 figure_path = pathlib.Path.cwd().parent.parent / "figures" / "arepc_honest"
 figure_path.mkdir(parents=True, exist_ok=True)
 fig.savefig(figure_path / "arepc_honest_performance.png", dpi=300)
+fig.savefig(figure_path / "arepc_honest_performance.pdf", format="pdf")
