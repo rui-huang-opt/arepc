@@ -17,7 +17,7 @@ parser.add_argument("--alpha", type=float, default=0.3, help="Step size alpha.")
 args = parser.parse_args(namespace=Args())
 
 import numpy as np
-from numpy.random import uniform, seed
+import numpy.random as npr
 from topolink import NodeHandle
 
 lower_bound = -100.0
@@ -29,8 +29,8 @@ from arepc import ARepC
 
 agent = ARepC(nh, args.alpha, eta=0.02, loss_func="qmed", normalization="1.5-entmax")
 x = np.zeros((args.n_iter, args.n_state))
-seed(int(args.idx))  # Ensure reproducibility for each node
-x[0] = uniform(lower_bound, upper_bound, args.n_state)
+npr.seed(int(args.idx))  # Ensure reproducibility for each node
+x[0] = npr.uniform(lower_bound, upper_bound, args.n_state)
 
 for k in range(args.n_iter - 1):
     # Compute new state

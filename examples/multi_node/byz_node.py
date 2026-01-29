@@ -21,19 +21,13 @@ args = parser.parse_args(namespace=Args())
 lower_bound = -100.0
 upper_bound = 100.0
 
-import numpy as np
-from numpy.random import seed, uniform
+import numpy.random as npr
 from topolink import NodeHandle
 
 nh = NodeHandle(args.idx)
 
-from numpy.random import seed, uniform
-from topolink import NodeHandle
-
-nh = NodeHandle(args.idx)
-
-seed(int(args.idx))  # Ensure reproducibility for each node
+npr.seed(int(args.idx))  # Ensure reproducibility for each node
 
 for _ in range(args.n_iter - 1):
-    attack_value = uniform(-100, 100, args.n_state)
+    attack_value = npr.uniform(-100, 100, args.n_state)
     _ = nh.laplacian(attack_value)
