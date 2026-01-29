@@ -31,3 +31,8 @@ npr.seed(int(args.idx))  # Ensure reproducibility for each node
 for _ in range(args.n_iter - 1):
     attack_value = npr.uniform(-100, 100, args.n_state)
     _ = nh.laplacian(attack_value)
+
+import pathlib
+
+output_path = pathlib.Path.cwd().parent.parent / "outputs" / "arepc_byzantine"
+output_path.mkdir(parents=True, exist_ok=True)
