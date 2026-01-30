@@ -11,6 +11,13 @@ class Args(argparse.Namespace):
 
 parser = argparse.ArgumentParser(description="A simple consensus test using TopoLink.")
 parser.add_argument("idx", type=str, help="Index of the node.")
+parser.add_argument(
+    "--method",
+    type=str,
+    choices=["arepc", "repc", "wmsr"],
+    default="arepc",
+    help="Consensus method to use.",
+)
 parser.add_argument("--attack", type=str, default="constant", help="Byzantine attack.")
 parser.add_argument("--n_state", type=int, default=20, help="Dimension of the state.")
 parser.add_argument("--n_iter", type=int, default=200, help="Number of iterations.")
