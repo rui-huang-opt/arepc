@@ -43,5 +43,7 @@ for _ in range(args.n_iter - 1):
 
 import pathlib
 
-output_path = pathlib.Path.cwd().parent.parent / "outputs" / f"{args.method}_byzantine"
+PROJECT_ROOT = pathlib.Path(__file__).resolve().parents[2]
+
+output_path = PROJECT_ROOT / "outputs" / f"{args.method}_byzantine"
 output_path.mkdir(parents=True, exist_ok=True)
