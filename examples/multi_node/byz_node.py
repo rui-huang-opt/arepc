@@ -1,4 +1,5 @@
 import argparse
+import typing
 
 
 class Args(argparse.Namespace):
@@ -7,6 +8,7 @@ class Args(argparse.Namespace):
     n_state: int
     n_iter: int
     alpha: float
+    method: typing.Literal["arepc", "repc", "wmsr"]
 
 
 parser = argparse.ArgumentParser(description="A simple consensus test using TopoLink.")
@@ -41,5 +43,5 @@ for _ in range(args.n_iter - 1):
 
 import pathlib
 
-output_path = pathlib.Path.cwd().parent.parent / "outputs" / "arepc_byzantine"
+output_path = pathlib.Path.cwd().parent.parent / "outputs" / f"{args.method}_byzantine"
 output_path.mkdir(parents=True, exist_ok=True)
