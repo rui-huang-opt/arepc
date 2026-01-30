@@ -1,8 +1,10 @@
 import argparse
+import typing
 
 
 class Args(argparse.Namespace):
     idx: str
+    method: typing.Literal["arepc", "repc", "wmsr"]
     n_state: int
     n_iter: int
     alpha: float
@@ -10,6 +12,13 @@ class Args(argparse.Namespace):
 
 parser = argparse.ArgumentParser(description="A simple consensus test using TopoLink.")
 parser.add_argument("idx", type=str, help="Index of the node.")
+parser.add_argument(
+    "--method",
+    type=str,
+    choices=["arepc", "repc", "wmsr"],
+    default="arepc",
+    help="Consensus method to use.",
+)
 parser.add_argument("--n_state", type=int, default=20, help="Dimension of the state.")
 parser.add_argument("--n_iter", type=int, default=200, help="Number of iterations.")
 parser.add_argument("--alpha", type=float, default=0.3, help="Step size alpha.")
@@ -26,8 +35,17 @@ upper_bound = 100.0
 nh = NodeHandle(args.idx)
 
 from arepc import ARepC
+from arepc.baselines import RepC, WMSR
 
-agent = ARepC(nh, args.alpha, eta=0.02, loss_func="qmed", normalization="1.5-entmax")
+if args.method == "arepc":
+    agent = ARepC(nh, args.alpha, eta=0.02, loss_func="cmed", normalization="sparsemax")
+elif args.method == "repc":
+    agent = RepC(nh, args.alpha, 1)
+elif args.method == "wmsr":
+    agent = WMSR(nh, args.alpha, 1)
+else:
+    raise ValueError(f"Unknown method: {args.method}")
+
 x = np.zeros((args.n_iter, args.n_state))
 npr.seed(int(args.idx))  # Ensure reproducibility for each node
 x[0] = npr.uniform(lower_bound, upper_bound, args.n_state)
@@ -38,6 +56,6 @@ for k in range(args.n_iter - 1):
 
 import pathlib
 
-output_path = pathlib.Path.cwd().parent.parent / "outputs" / "arepc_honest"
+output_path = pathlib.Path.cwd().parent.parent / "outputs" / f"{args.method}_honest"
 output_path.mkdir(parents=True, exist_ok=True)
 np.save(output_path / f"node_{args.idx}_states.npy", x)
