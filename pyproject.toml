@@ -12,7 +12,7 @@ authors = [{ name = "Rui Huang", email = "ruihuang0421@gmail.com" }]
 
 dependencies = [
     "scipy>=1.15.3",
-    "topolink @ git+https://github.com/rui-huang-opt/topolink.git@0.2.5",
+    "topolink @ git+https://github.com/rui-huang-opt/topolink.git@0.3.1",
 ]
 
 [project.optional-dependencies]
