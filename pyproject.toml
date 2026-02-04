@@ -16,8 +16,13 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-vsc = ["ipykernel>=6.29.5"]
-vis = ["matplotlib>=3.10.3"]
+notebook = ["ipykernel>=6.29.5"]
+examples = [
+    "matplotlib>=3.10.3",
+    "networkx>=3.4.2",
+    "dask[distributed]>=2026.1.2",
+    "python-dotenv>=1.2.1",
+]
 
 [tool.setuptools.packages.find]
 where = ["src"]
