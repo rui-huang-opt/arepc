@@ -1,6 +1,5 @@
 import math
 import logging
-from typing import Callable, Literal
 from dataclasses import dataclass
 
 import numpy as np
