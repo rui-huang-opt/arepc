@@ -106,7 +106,7 @@ class WLA:
         neighbor_states = self._ops.exchange_as_array(local_state)
 
         current_losses = npl.norm(neighbor_states - local_state, axis=1)
-        self._cumulative_losses += self.eta * current_losses
+        self._cumulative_losses += current_losses
         self._reputations = softmax(-self.eta * self._cumulative_losses)
 
         center_proxy = self._reputations @ neighbor_states
