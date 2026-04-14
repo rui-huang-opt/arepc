@@ -26,11 +26,13 @@ class QCons:
         self.alpha = 1 - 1 / (self._ops.degree + 1) if alpha is None else alpha
 
         self._q_values = np.ones(self._ops.degree)
-        self._weights = np.zeros(self._ops.degree)
+        self._reputations = np.zeros(self._ops.degree)
 
     @property
-    def weights(self) -> dict[str, float]:
-        return {j: float(self._weights[i]) for i, j in enumerate(self._ops.neighbors)}
+    def reputations(self) -> dict[str, float]:
+        return {
+            j: float(self._reputations[i]) for i, j in enumerate(self._ops.neighbors)
+        }
 
     def weighted_mix(self, local_state: NDArray[np.float64]) -> NDArray[np.float64]:
         """
@@ -48,8 +50,8 @@ class QCons:
         rewards = np.exp(-dists * self.beta)
         self._q_values = self._q_values + self.eta * (rewards - self._q_values)
 
-        self._weights = self._q_values / np.sum(self._q_values)
-        center_proxy = self._weights @ neighbor_states
+        self._reputations = self._q_values / np.sum(self._q_values)
+        center_proxy = self._reputations @ neighbor_states
 
         return local_state * (1 - self.alpha) + center_proxy * self.alpha
 
