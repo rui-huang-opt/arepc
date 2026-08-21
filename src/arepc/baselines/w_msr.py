@@ -3,7 +3,7 @@ import logging
 import numpy as np
 from numpy.typing import NDArray
 
-from ..network import NetworkOps
+from ..network import Network
 from ..geometry import trimmed_mean
 
 
@@ -32,8 +32,8 @@ class WMSR:
         An array representing the computed next state.
     """
 
-    def __init__(self, ops: NetworkOps, alpha: float, f: int) -> None:
-        self._ops = ops
+    def __init__(self, network: Network, alpha: float, f: int) -> None:
+        self._network = network
         self.alpha = alpha
 
         if f < 0:
@@ -53,6 +53,6 @@ class WMSR:
         Returns:
             NDArray[np.float64]: The updated local state array.
         """
-        neighbor_states = self._ops.exchange_as_array(local_state)
+        neighbor_states = self._network.exchange_as_array(local_state)
         center_proxy = trimmed_mean(neighbor_states, self._f)
         return local_state * (1 - self.alpha) + center_proxy * self.alpha

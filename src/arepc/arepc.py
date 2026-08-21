@@ -3,7 +3,7 @@ from typing import Literal
 import numpy as np
 from numpy.typing import NDArray
 
-from .network import NetworkOps
+from .network import Network
 from .loss_func import LossFunc, LOSS_FUNC_MAP
 from .accumulator import make_accumulator
 from .normalizer import NORMALIZER_MAP
@@ -113,7 +113,7 @@ class ARepC:
 
     def __init__(
         self,
-        ops: NetworkOps,
+        network: Network,
         alpha: float,
         eta: float,
         loss_func: LossFunc | Literal["cmed", "qmed", "gmed", "mean"] = "cmed",
@@ -121,7 +121,7 @@ class ARepC:
         normalization: Literal["softmax", "sparsemax", "1.5-entmax"] = "softmax",
         horizon: float = 5.0,
     ) -> None:
-        self._ops = ops
+        self._network = network
         self.alpha = alpha
         self.eta = eta
 
@@ -130,15 +130,18 @@ class ARepC:
         else:
             self._loss_func = loss_func
 
-        self._accumulator = make_accumulator(accumulation, horizon, ops.degree)
+        degree = self._network.degree
+
+        self._accumulator = make_accumulator(accumulation, horizon, dim=degree)
         self._normalizer = NORMALIZER_MAP[normalization]
 
-        self._reputations = np.zeros(ops.degree, dtype=np.float64)
+        self._reputations = np.zeros(degree, dtype=np.float64)
 
     @property
     def reputations(self) -> dict[str, float]:
         return {
-            j: float(self._reputations[i]) for i, j in enumerate(self._ops.neighbors)
+            j: float(self._reputations[i])
+            for i, j in enumerate(self._network.neighbors)
         }
 
     def weighted_mix(self, local_state: NDArray[np.float64]) -> NDArray[np.float64]:
@@ -157,7 +160,7 @@ class ARepC:
         Returns:
             NDArray[np.float64]: The updated local state array.
         """
-        neighbor_states = self._ops.exchange_as_array(local_state)
+        neighbor_states = self._network.exchange_as_array(local_state)
 
         current_losses = self._loss_func(neighbor_states)
         cumulative_losses = self._accumulator(current_losses)

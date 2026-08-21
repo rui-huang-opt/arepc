@@ -4,7 +4,7 @@ from typing import Literal
 import numpy as np
 from numpy.typing import NDArray
 
-from ..network import NetworkOps
+from ..network import Network
 from ..geometry import iterated_radon, iterated_tverberg
 
 logger = logging.getLogger(__name__)
@@ -44,11 +44,11 @@ class ADRC:
 
     def __init__(
         self,
-        ops: NetworkOps,
+        network: Network,
         alpha: float,
         method: Literal["radon", "tverberg"] = "radon",
     ) -> None:
-        self._ops = ops
+        self._network = network
         self.alpha = alpha
 
         if method == "radon":
@@ -75,7 +75,7 @@ class ADRC:
         Returns:
             NDArray[np.float64]: The updated local state array.
         """
-        neighbor_states = self._ops.exchange_as_array(local_state)
+        neighbor_states = self._network.exchange_as_array(local_state)
         center_proxy = self._c_estimator(neighbor_states)
 
         return local_state * (1 - self.alpha) + center_proxy * self.alpha

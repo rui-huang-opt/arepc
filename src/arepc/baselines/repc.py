@@ -6,7 +6,7 @@ import numpy as np
 from numpy.typing import NDArray
 from scipy.spatial.distance import cdist
 
-from ..network import NetworkOps
+from ..network import Network
 
 logger = logging.getLogger(__name__)
 
@@ -128,12 +128,12 @@ class RepC:
 
     def __init__(
         self,
-        ops: NetworkOps,
+        network: Network,
         alpha: float,
         f: int,
         eps: float = 0.001,
     ) -> None:
-        self._ops = ops
+        self._network = network
         self.alpha = alpha
 
         if not (0.0 <= eps < 1.0):
@@ -151,11 +151,11 @@ class RepC:
 
         self._f = f
 
-        self._reputations = Reputations(np.zeros(ops.degree, dtype=np.float64))
+        self._reputations = Reputations(np.zeros(self._network.degree))
 
     @property
     def reputations(self) -> dict[str, float]:
-        return self._reputations.to_dict(self._ops.neighbors)
+        return self._reputations.to_dict(self._network.neighbors)
 
     def weighted_mix(self, local_state: NDArray[np.float64]) -> NDArray[np.float64]:
         """
@@ -167,7 +167,7 @@ class RepC:
         Returns:
             NDArray[np.float64]: The updated local state array.
         """
-        neighbor_states = self._ops.exchange_as_array(local_state)
+        neighbor_states = self._network.exchange_as_array(local_state)
 
         self._reputations.update(neighbor_states)
         self._reputations.normalize(f=self._f, eps=self._eps_t)

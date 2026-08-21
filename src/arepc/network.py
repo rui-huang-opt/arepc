@@ -3,7 +3,7 @@ from numpy import float64
 from numpy.typing import NDArray
 
 
-class NetworkOps(Protocol):
+class Network(Protocol):
     """
     Protocol for communication operations in distributed optimization.
 

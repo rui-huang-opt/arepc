@@ -2,7 +2,7 @@ import numpy as np
 from numpy.typing import NDArray
 import numpy.linalg as npl
 
-from ..network import NetworkOps
+from ..network import Network
 from ..normalizer import softmax
 
 
@@ -17,21 +17,22 @@ class QCons:
     """
 
     def __init__(
-        self, ops: NetworkOps, beta: float, eta: float, alpha: float | None = None
+        self, network: Network, beta: float, eta: float, alpha: float | None = None
     ) -> None:
-        self._ops = ops
+        self._network = network
 
         self.beta = beta
         self.eta = eta
-        self.alpha = 1 - 1 / (self._ops.degree + 1) if alpha is None else alpha
+        self.alpha = 1 - 1 / (self._network.degree + 1) if alpha is None else alpha
 
-        self._q_values = np.ones(self._ops.degree)
-        self._reputations = np.zeros(self._ops.degree)
+        self._q_values = np.ones(self._network.degree)
+        self._reputations = np.zeros(self._network.degree)
 
     @property
     def reputations(self) -> dict[str, float]:
         return {
-            j: float(self._reputations[i]) for i, j in enumerate(self._ops.neighbors)
+            j: float(self._reputations[i])
+            for i, j in enumerate(self._network.neighbors)
         }
 
     def weighted_mix(self, local_state: NDArray[np.float64]) -> NDArray[np.float64]:
@@ -44,7 +45,7 @@ class QCons:
         Returns:
             NDArray[np.float64]: The computed Q-consensus value.
         """
-        neighbor_states = self._ops.exchange_as_array(local_state)
+        neighbor_states = self._network.exchange_as_array(local_state)
 
         dists: NDArray[np.float64] = npl.norm(neighbor_states - local_state, axis=1)
         rewards = np.exp(-dists * self.beta)
@@ -77,22 +78,23 @@ class WLA:
 
     def __init__(
         self,
-        ops: NetworkOps,
+        network: Network,
         eta: float,
         alpha: float | None = None,
     ) -> None:
-        self._ops = ops
+        self._network = network
 
         self.eta = eta
-        self.alpha = 1 - 1 / (self._ops.degree + 1) if alpha is None else alpha
+        self.alpha = 1 - 1 / (self._network.degree + 1) if alpha is None else alpha
 
-        self._cumulative_losses = np.zeros(self._ops.degree)
-        self._reputations = np.zeros(self._ops.degree)
+        self._cumulative_losses = np.zeros(self._network.degree)
+        self._reputations = np.zeros(self._network.degree)
 
     @property
     def reputations(self) -> dict[str, float]:
         return {
-            j: float(self._reputations[i]) for i, j in enumerate(self._ops.neighbors)
+            j: float(self._reputations[i])
+            for i, j in enumerate(self._network.neighbors)
         }
 
     def weighted_mix(self, local_state: NDArray[np.float64]) -> NDArray[np.float64]:
@@ -105,7 +107,7 @@ class WLA:
         Returns:
             NDArray[np.float64]: The computed Q-consensus value.
         """
-        neighbor_states = self._ops.exchange_as_array(local_state)
+        neighbor_states = self._network.exchange_as_array(local_state)
 
         current_losses = npl.norm(neighbor_states - local_state, axis=1)
         self._cumulative_losses += current_losses
