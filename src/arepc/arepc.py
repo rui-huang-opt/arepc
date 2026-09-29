@@ -151,8 +151,6 @@ class ARepC:
             x_i(t+1) = w_ii * x_i(t) + sum_{j in N_i} w_ij * x_j(t),
         where W is the weight matrix derived from reputations.
         The difference is that here we use dynamic weights based on reputations computed from losses.
-        This also facilitates easier integration with our distributed optimization framework:
-            https://github.com/rui-huang-opt/discoopt.
 
         Args:
             local_state (NDArray[np.float64]): The local state array.
