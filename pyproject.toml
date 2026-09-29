@@ -12,7 +12,7 @@ authors = [{ name = "Rui Huang", email = "ruihuang0421@gmail.com" }]
 
 dependencies = [
     "scipy>=1.15.3",
-    "conops @ git+https://github.com/rui-huang-opt/conops.git@0.3.0",
+    "conops @ git+https://github.com/rui-huang-opt/conops.git@0.4.3",
 ]
 
 [project.optional-dependencies]
