@@ -1,9 +1,8 @@
-from typing import Literal
+from typing import Literal, Collection
 
 import numpy as np
 from numpy.typing import NDArray
 
-from .network import Network
 from .loss_func import LossFunc, LOSS_FUNC_MAP
 from .accumulator import make_accumulator
 from .normalizer import NORMALIZER_MAP
@@ -13,107 +12,77 @@ class ARepC:
     """
     Adaptive Reputation-based Consensus (ARepC) robust aggregation algorithm.
 
+    ARepC evaluates neighbor states using a loss function, accumulates
+    the losses over time, and converts them into reputation weights.
+    These weights are then used to aggregate neighbor states with the
+    local state.
+
+    Network communication is handled externally. ARepC only performs
+    reputation updates and state aggregation.
+
     Parameters
     ----------
-    ops : NetworkOps
-        Network operations handler implementing the 'NetworkOps' protocol (defined in the 'network' module).
+    neighbors : Collection[str]
+        Identifiers of neighboring nodes. Internally sorted to maintain
+        a consistent ordering of neighbor states and reputations.
 
     alpha : float
-        Mixing parameter between local state and aggregated prediction.
-        This parameter depends on the network topology and should be chosen accordingly.
+        Mixing parameter controlling the contribution of aggregated
+        neighbor states relative to the local state.
 
     eta : float
-        Temperature parameter controlling sensitivity to losses.
+        Temperature parameter controlling the sensitivity of
+        reputation weights to accumulated losses.
 
-    loss_func : LossFunc | Literal["cmed", "qmed", "gmed", "mean"], optional
-        Loss function to evaluate neighbor predictions.
+    loss_func : LossFunc | {"cmed", "qmed", "gmed", "mean"}, optional
+        Loss function used to evaluate neighbor states.
 
-        If a string is provided, it selects one of the predefined loss functions.
-        Options are
-        "cmed" (coordinate-wise median loss),
-        "qmed" (quasi-geometric median loss),
-        "gmed" (geometric median loss),
-        and "mean" (mean loss).
+        Available predefined options are:
+
+        - "cmed": Coordinate-wise median loss.
+        - "qmed": Quasi-geometric median loss.
+        - "gmed": Geometric median loss.
+        - "mean": Mean loss.
+
         Defaults to "cmed".
 
-        There are also two additional loss functions that require configuration:
-        - GeometricMedianLoss:
-          This loss function computes the geometric median of neighbor states iteratively using Weiszfeld's algorithm.
-          Thus, it has two parameters: `tol` (tolerance for convergence) and `max_iter` (maximum number of iterations).
-          The 'gmed' option uses a default instance of this class with `tol=1e-6` and `max_iter=1000`.
-          You can customize these parameters by instantiating the class separately and passing the instance as `loss_func`.
-        - TrimmedMeanLoss:
-          This loss function requires specifying the trimming parameter `f`, which is usually unknown in practice.
-          So this loss function is not recommended for general use.
-          However, if you want to experiment with it, you can instantiate the class separately and pass the instance as `loss_func`.
-        To use these, instantiate them separately and pass the instance as `loss_func`.
-        e.g.,
-        ```python
-        from arepc import ARepC, GeometricMedianLoss, TrimmedMeanLoss
+        Custom loss functions are also supported. A loss function must
+        accept a 2D NumPy array of stacked neighbor states and return
+        a 1D array containing one loss value per neighbor.
 
-        loss_func = GeometricMedianLoss(tol=1e-5, max_iter=2000)
-        # or
-        loss_func = TrimmedMeanLoss(f=2)
+        Configurable loss functions, such as GeometricMedianLoss and
+        TrimmedMeanLoss, can be instantiated separately and passed
+        through this parameter.
 
-        arepc = ARepC(neighbors, 0.5, 1.0, loss_func=loss_func)
-        ```
+    accumulation : {"exp-decay", "moving-horizon"}, optional
+        Method for accumulating historical losses.
 
-        Besides, you can also define your own custom loss function by implementing a callable that takes
-        a 2D numpy array of stacked neighbor states and returns a 1D numpy array of corresponding losses.
-        e.g.,
-        ```python
-        from arepc import ARepC
-        from numpy.typing import NDArray
-        import numpy as np
+        - "exp-decay": Exponentially decayed accumulation.
+        - "moving-horizon": Accumulation over a finite moving window.
 
-        class CustomLoss:
-            def __init__(self, ...) -> None:
-                # Initialize any parameters needed for your custom loss
-                ...
-
-            def __call__(self, neighbor_states: NDArray[np.float64]) -> NDArray[np.float64]:
-                # Implement your custom loss computation here
-                losses = ...
-                return losses
-
-        arepc = ARepC(neighbors, 0.5, 1.0, loss_func=CustomLoss(...))
-        # or
-        def custom_loss(neighbor_states: NDArray[np.float64]) -> NDArray[np.float64]:
-            # Implement your custom loss computation here
-            losses = ...
-            return losses
-
-        arepc = ARepC(neighbors, 0.5, 1.0, loss_func=custom_loss)
-        ```
-
-    accumulation : str, optional
-        Accumulation type for loss aggregation.
-        Options are "exp-decay" (exponentially decayed) and "moving-horizon".
         Defaults to "exp-decay".
 
-    normalization : str, optional
-        Normalization function to convert losses to probabilities.
-        Options are "softmax", "sparsemax", and "1.5-entmax".
-        Defaults to "softmax".
+    normalization : {"softmax", "sparsemax", "1.5-entmax"}, optional
+        Normalization function used to convert accumulated losses
+        into reputation weights. Defaults to "softmax".
 
     horizon : float, optional
-        Horizon parameter for the accumulation method.
+        Parameter controlling the accumulation method.
 
-        For "moving_horizon", it defines the window size by 'horizon = int(horizon)'.
-
-        For "forgetting_factor", it controls the decay rate by 'decay = 1 - 1 / horizon'.
+        For "exp-decay", the decay coefficient is 1 - 1 / horizon.
+        For "moving-horizon", the window size is int(horizon).
 
         Defaults to 5.0.
 
     Attributes
     ----------
-    probs : dict[str, float]
-        Current probabilities assigned to each neighbor.
+    reputations : dict[str, float]
+        Current reputation weights assigned to neighboring nodes.
     """
 
     def __init__(
         self,
-        network: Network,
+        neighbors: Collection[str],
         alpha: float,
         eta: float,
         loss_func: LossFunc | Literal["cmed", "qmed", "gmed", "mean"] = "cmed",
@@ -121,7 +90,7 @@ class ARepC:
         normalization: Literal["softmax", "sparsemax", "1.5-entmax"] = "softmax",
         horizon: float = 5.0,
     ) -> None:
-        self._network = network
+        self._neighbors = tuple(sorted(neighbors))
         self.alpha = alpha
         self.eta = eta
 
@@ -130,7 +99,7 @@ class ARepC:
         else:
             self._loss_func = loss_func
 
-        degree = self._network.degree
+        degree = len(neighbors)
 
         self._accumulator = make_accumulator(accumulation, horizon, dim=degree)
         self._normalizer = NORMALIZER_MAP[normalization]
@@ -139,31 +108,41 @@ class ARepC:
 
     @property
     def reputations(self) -> dict[str, float]:
-        return {
-            j: float(self._reputations[i])
-            for i, j in enumerate(self._network.neighbors)
-        }
+        return {j: float(self._reputations[i]) for i, j in enumerate(self._neighbors)}
 
-    def weighted_mix(self, local_state: NDArray[np.float64]) -> NDArray[np.float64]:
+    def mix(
+        self,
+        local_state: NDArray[np.float64],
+        neighbor_states: dict[str, NDArray[np.float64]],
+    ) -> NDArray[np.float64]:
         """
-        The operator that aggregates neighbor states with local state using ARepC.
-        The method named 'weighted_mix' is used to align with the naming convention:
-            x_i(t+1) = w_ii * x_i(t) + sum_{j in N_i} w_ij * x_j(t),
-        where W is the weight matrix derived from reputations.
-        The difference is that here we use dynamic weights based on reputations computed from losses.
+        Update neighbor reputations and aggregate states using ARepC.
 
-        Args:
-            local_state (NDArray[np.float64]): The local state array.
+        Neighbor losses are evaluated and accumulated to update reputation
+        weights. The weighted combination of neighbor states is then mixed
+        with the local state:
 
-        Returns:
-            NDArray[np.float64]: The updated local state array.
+            mixed_state = (1 - alpha) * local_state + alpha * sum_j(reputation_j * neighbor_state_j)
+
+        Parameters
+        ----------
+        local_state : NDArray[np.float64]
+            Current local state array.
+
+        neighbor_states : dict[str, NDArray[np.float64]]
+            Mapping from neighbor IDs to their state arrays. Each
+            configured neighbor must have a corresponding state.
+
+        Returns
+        -------
+        NDArray[np.float64]
+            Aggregated state obtained using the updated reputations.
         """
-        neighbor_states = self._network.exchange_as_array(local_state)
-
-        current_losses = self._loss_func(neighbor_states)
+        stacked_states = np.stack([neighbor_states[j] for j in self._neighbors], axis=0)
+        current_losses = self._loss_func(stacked_states)
         cumulative_losses = self._accumulator(current_losses)
         self._reputations = self._normalizer(-self.eta * cumulative_losses)
 
-        center_proxy = self._reputations @ neighbor_states
+        center_proxy = self._reputations @ stacked_states
 
         return local_state * (1 - self.alpha) + center_proxy * self.alpha

@@ -6,8 +6,6 @@ import numpy as np
 from numpy.typing import NDArray
 from scipy.spatial.distance import cdist
 
-from ..network import Network
-
 logger = logging.getLogger(__name__)
 
 
@@ -128,12 +126,12 @@ class RepC:
 
     def __init__(
         self,
-        network: Network,
+        neighbors: Collection[str],
         alpha: float,
         f: int,
         eps: float = 0.001,
     ) -> None:
-        self._network = network
+        self._neighbors = tuple(sorted(neighbors))
         self.alpha = alpha
 
         if not (0.0 <= eps < 1.0):
@@ -151,13 +149,17 @@ class RepC:
 
         self._f = f
 
-        self._reputations = Reputations(np.zeros(self._network.degree))
+        self._reputations = Reputations(np.zeros(len(neighbors), dtype=np.float64))
 
     @property
     def reputations(self) -> dict[str, float]:
-        return self._reputations.to_dict(self._network.neighbors)
+        return self._reputations.to_dict(self._neighbors)
 
-    def weighted_mix(self, local_state: NDArray[np.float64]) -> NDArray[np.float64]:
+    def mix(
+        self,
+        local_state: NDArray[np.float64],
+        neighbor_states: dict[str, NDArray[np.float64]],
+    ) -> NDArray[np.float64]:
         """
         The operator that aggregates neighbor states with local state using RepC.
 
@@ -167,13 +169,13 @@ class RepC:
         Returns:
             NDArray[np.float64]: The updated local state array.
         """
-        neighbor_states = self._network.exchange_as_array(local_state)
+        stacked_states = np.stack([neighbor_states[j] for j in self._neighbors], axis=0)
 
-        self._reputations.update(neighbor_states)
+        self._reputations.update(stacked_states)
         self._reputations.normalize(f=self._f, eps=self._eps_t)
 
         self._eps_t *= self._eps
 
-        center_proxy = self._reputations.value @ neighbor_states
+        center_proxy = self._reputations.value @ stacked_states
 
         return local_state * (1 - self.alpha) + center_proxy * self.alpha

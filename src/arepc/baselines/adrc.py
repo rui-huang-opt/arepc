@@ -1,10 +1,9 @@
 import logging
-from typing import Literal
+from typing import Literal, Collection
 
 import numpy as np
 from numpy.typing import NDArray
 
-from ..network import Network
 from ..geometry import iterated_radon, iterated_tverberg
 
 logger = logging.getLogger(__name__)
@@ -44,11 +43,11 @@ class ADRC:
 
     def __init__(
         self,
-        network: Network,
+        neighbors: Collection[str],
         alpha: float,
         method: Literal["radon", "tverberg"] = "radon",
     ) -> None:
-        self._network = network
+        self._neighbors = tuple(sorted(neighbors))
         self.alpha = alpha
 
         if method == "radon":
@@ -65,7 +64,11 @@ class ADRC:
             logger.error(err_msg)
             raise ValueError(err_msg)
 
-    def weighted_mix(self, local_state: NDArray[np.float64]) -> NDArray[np.float64]:
+    def mix(
+        self,
+        local_state: NDArray[np.float64],
+        neighbor_states: dict[str, NDArray[np.float64]],
+    ) -> NDArray[np.float64]:
         """
         The operator that aggregates neighbor states with local state using ADRC.
 
@@ -75,7 +78,7 @@ class ADRC:
         Returns:
             NDArray[np.float64]: The updated local state array.
         """
-        neighbor_states = self._network.exchange_as_array(local_state)
-        center_proxy = self._c_estimator(neighbor_states)
+        stacked_states = np.stack([neighbor_states[j] for j in self._neighbors], axis=0)
+        center_proxy = self._c_estimator(stacked_states)
 
         return local_state * (1 - self.alpha) + center_proxy * self.alpha

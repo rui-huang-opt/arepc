@@ -1,11 +1,10 @@
 import logging
+from typing import Collection
 
 import numpy as np
 from numpy.typing import NDArray
 
-from ..network import Network
 from ..geometry import trimmed_mean
-
 
 logger = logging.getLogger(__name__)
 
@@ -32,8 +31,8 @@ class WMSR:
         An array representing the computed next state.
     """
 
-    def __init__(self, network: Network, alpha: float, f: int) -> None:
-        self._network = network
+    def __init__(self, neighbors: Collection[str], alpha: float, f: int) -> None:
+        self._neighbors = tuple(sorted(neighbors))
         self.alpha = alpha
 
         if f < 0:
@@ -43,7 +42,11 @@ class WMSR:
 
         self._f = f
 
-    def weighted_mix(self, local_state: NDArray[np.float64]) -> NDArray[np.float64]:
+    def mix(
+        self,
+        local_state: NDArray[np.float64],
+        neighbor_states: dict[str, NDArray[np.float64]],
+    ) -> NDArray[np.float64]:
         """
         The operator that aggregates neighbor states with local state using W-MSR.
 
@@ -53,6 +56,6 @@ class WMSR:
         Returns:
             NDArray[np.float64]: The updated local state array.
         """
-        neighbor_states = self._network.exchange_as_array(local_state)
-        center_proxy = trimmed_mean(neighbor_states, self._f)
+        stacked_states = np.stack([neighbor_states[j] for j in self._neighbors], axis=0)
+        center_proxy = trimmed_mean(stacked_states, self._f)
         return local_state * (1 - self.alpha) + center_proxy * self.alpha

@@ -1,8 +1,9 @@
+from typing import Collection
+
 import numpy as np
 from numpy.typing import NDArray
 import numpy.linalg as npl
 
-from ..network import Network
 from ..normalizer import softmax
 
 
@@ -17,25 +18,32 @@ class QCons:
     """
 
     def __init__(
-        self, network: Network, beta: float, eta: float, alpha: float | None = None
+        self,
+        neighbors: Collection[str],
+        beta: float,
+        eta: float,
+        alpha: float | None = None,
     ) -> None:
-        self._network = network
+        self._neighbors = tuple(sorted(neighbors))
+
+        degree = len(neighbors)
 
         self.beta = beta
         self.eta = eta
-        self.alpha = 1 - 1 / (self._network.degree + 1) if alpha is None else alpha
+        self.alpha = 1 - 1 / (degree + 1) if alpha is None else alpha
 
-        self._q_values = np.ones(self._network.degree)
-        self._reputations = np.zeros(self._network.degree)
+        self._q_values = np.ones(degree)
+        self._reputations = np.zeros(degree)
 
     @property
     def reputations(self) -> dict[str, float]:
-        return {
-            j: float(self._reputations[i])
-            for i, j in enumerate(self._network.neighbors)
-        }
+        return {j: float(self._reputations[i]) for i, j in enumerate(self._neighbors)}
 
-    def weighted_mix(self, local_state: NDArray[np.float64]) -> NDArray[np.float64]:
+    def mix(
+        self,
+        local_state: NDArray[np.float64],
+        neighbor_states: dict[str, NDArray[np.float64]],
+    ) -> NDArray[np.float64]:
         """
         The operator that aggregates neighbor states with local state using Q-consensus.
 
@@ -45,14 +53,14 @@ class QCons:
         Returns:
             NDArray[np.float64]: The computed Q-consensus value.
         """
-        neighbor_states = self._network.exchange_as_array(local_state)
+        stacked_states = np.stack([neighbor_states[j] for j in self._neighbors], axis=0)
 
-        dists: NDArray[np.float64] = npl.norm(neighbor_states - local_state, axis=1)
+        dists: NDArray[np.float64] = npl.norm(stacked_states - local_state, axis=1)
         rewards = np.exp(-dists * self.beta)
         self._q_values = self._q_values + self.eta * (rewards - self._q_values)
 
         self._reputations = self._q_values / np.sum(self._q_values)
-        center_proxy = self._reputations @ neighbor_states
+        center_proxy = self._reputations @ stacked_states
 
         return local_state * (1 - self.alpha) + center_proxy * self.alpha
 
@@ -78,26 +86,25 @@ class WLA:
 
     def __init__(
         self,
-        network: Network,
+        neighbors: Collection[str],
         eta: float,
         alpha: float | None = None,
     ) -> None:
-        self._network = network
+        self._neighbors = tuple(sorted(neighbors))
+
+        degree = len(neighbors)
 
         self.eta = eta
-        self.alpha = 1 - 1 / (self._network.degree + 1) if alpha is None else alpha
+        self.alpha = 1 - 1 / (degree + 1) if alpha is None else alpha
 
-        self._cumulative_losses = np.zeros(self._network.degree)
-        self._reputations = np.zeros(self._network.degree)
+        self._cumulative_losses = np.zeros(degree)
+        self._reputations = np.zeros(degree)
 
     @property
     def reputations(self) -> dict[str, float]:
-        return {
-            j: float(self._reputations[i])
-            for i, j in enumerate(self._network.neighbors)
-        }
+        return {j: float(self._reputations[i]) for i, j in enumerate(self._neighbors)}
 
-    def weighted_mix(self, local_state: NDArray[np.float64]) -> NDArray[np.float64]:
+    def mix(self, local_state: NDArray[np.float64], neighbor_states: dict[str, NDArray[np.float64]]) -> NDArray[np.float64]:
         """
         The operator that aggregates neighbor states with local state using Q-consensus.
 
@@ -107,12 +114,12 @@ class WLA:
         Returns:
             NDArray[np.float64]: The computed Q-consensus value.
         """
-        neighbor_states = self._network.exchange_as_array(local_state)
+        stacked_states = np.stack([neighbor_states[j] for j in self._neighbors], axis=0)
 
-        current_losses = npl.norm(neighbor_states - local_state, axis=1)
+        current_losses = npl.norm(stacked_states - local_state, axis=1)
         self._cumulative_losses += current_losses
         self._reputations = softmax(-self.eta * self._cumulative_losses)
 
-        center_proxy = self._reputations @ neighbor_states
+        center_proxy = self._reputations @ stacked_states
 
         return local_state * (1 - self.alpha) + center_proxy * self.alpha
